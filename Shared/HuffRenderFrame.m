@@ -1122,8 +1122,8 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
     }
       
     case TEST_LARGE_RANDOM: {
-      renderFrame.renderWidth = 256;
-      renderFrame.renderHeight = 256;
+      renderFrame.renderWidth = 1024;
+      renderFrame.renderHeight = 1024;
       
       sranddev();
       
