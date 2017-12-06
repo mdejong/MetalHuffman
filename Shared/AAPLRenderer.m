@@ -341,8 +341,8 @@ const static unsigned int blockDim = 2;
       
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING2;
-//      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
-      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
+      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
+//      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
@@ -1349,191 +1349,6 @@ const static unsigned int blockDim = 2;
     // Print output of render pass in stages
     
     const int assertOnValueDiff = 1;
-    
-#if defined(DEBUG)
-    
-    if (isCaptureRenderedTextureEnabled && self.huffRenderFrame.capture) {
-      // Query output texture
-      
-      for (int savedPass = 0; savedPass < (blockDim * blockDim); savedPass++) {
-      
-      id<MTLTexture> outTexture = self.huffRenderFrame.render_pass_saved_symbolsTexture[savedPass];
-      assert(outTexture);
-      
-      // Copy texture data into debug framebuffer, note that this include 2x scale
-      
-      int width = (int) outTexture.width;
-      int height = (int) outTexture.height;
-      
-      NSMutableData *mFramebuffer = [NSMutableData dataWithLength:width*height*sizeof(uint32_t)];
-      
-      [outTexture getBytes:(void*)mFramebuffer.mutableBytes
-               bytesPerRow:width*sizeof(uint32_t)
-             bytesPerImage:width*height*sizeof(uint32_t)
-                fromRegion:MTLRegionMake2D(0, 0, width, height)
-               mipmapLevel:0
-                     slice:0];
-      
-      NSMutableData *outBytesData = [NSMutableData data];
-      [outBytesData setLength:(width*height)];
-      uint8_t *outBytesPtr = (uint8_t*) outBytesData.mutableBytes;
-        
-      // Dump output words as BGRA
-      
-      fprintf(stdout, "render pass saved symbols %d\n", savedPass);
-        
-      if ((1)) {
-        // Dump 24 bit values as int
-        
-        const BOOL dumpValues = TRUE;
-        
-        uint32_t *inPixelPtr = (uint32_t*) mFramebuffer.mutableBytes;
-        
-        for ( int row = 0; row < height; row++ ) {
-          for ( int col = 0; col < width; col++ ) {
-            int offset = (row * width) + col;
-            int v = inPixelPtr[offset] & 0x00FFFFFF;
-            
-            outBytesPtr[offset] = v;
-            
-            if (dumpValues) {
-              fprintf(stdout, "%5d ", v);
-            }
-          }
-          if (dumpValues) {
-            fprintf(stdout, "\n");
-          }
-        }
-        if (dumpValues) {
-          fprintf(stdout, "done\n");
-        }
-      }
-        
-      // Compare rendered block output to expected output
-      
-        NSData *expectedData = self.huffRenderFrame.render_pass_expected_symbols[savedPass];
-        uint8_t *expectedDataPtr = (uint8_t*) expectedData.bytes;
-        
-        {
-          uint8_t *inBytesPtr = expectedDataPtr;
-          
-          fprintf(stdout, "expected\n");
-          
-          for ( int row = 0; row < height; row++ ) {
-            for ( int col = 0; col < width; col++ ) {
-              int offset = (row * width) + col;
-              int v = inBytesPtr[offset];
-              fprintf(stdout, "%5d ", v);
-            }
-            fprintf(stdout, "\n");
-          }
-          
-          fprintf(stdout, "done\n");
-        }
-
-        for ( int row = 0; row < height; row++ ) {
-          for ( int col = 0; col < width; col++ ) {
-            int offset = (row * width) + col;
-            int renderedVal = outBytesPtr[offset];
-            int expectedVal = expectedDataPtr[offset];
-            
-            if (renderedVal != expectedVal) {
-              printf("%3d != %3d : mismatch : offset %d : pass %d\n", renderedVal, expectedVal, offset, savedPass);
-              if (assertOnValueDiff) {
-                assert(0);
-              }
-            }
-          }
-        }
-        
-      } // end of saved passed loop
-    }
-#endif // DEBUG
-    
-    /*
-    
-#if defined(DEBUG)
-    if (isCaptureRenderedTextureEnabled && self.huffRenderFrame.capture) {
-      // Query output texture
-      
-      for (int savedPass = 0; savedPass < (blockDim * blockDim); savedPass++) {
-        
-        id<MTLTexture> outTexture = self.huffRenderFrame.render_pass_saved_coordsTexture[savedPass];
-        
-        // Copy texture data into debug framebuffer, note that this include 2x scale
-        
-        int width = (int) outTexture.width;
-        int height = (int) outTexture.height;
-        
-        NSMutableData *mFramebuffer = [NSMutableData dataWithLength:width*height*sizeof(uint32_t)];
-        
-        [outTexture getBytes:(void*)mFramebuffer.mutableBytes
-                 bytesPerRow:width*sizeof(uint32_t)
-               bytesPerImage:width*height*sizeof(uint32_t)
-                  fromRegion:MTLRegionMake2D(0, 0, width, height)
-                 mipmapLevel:0
-                       slice:0];
-        
-        // Dump output words as BGRA
-        
-        fprintf(stdout, "render pass saved coords : pass %d\n", savedPass);
-        
-        if ((1)) {
-          // Dump (X,Y) from 16 bit output
-          
-          fprintf(stdout, "(X,Y)\n");
-          
-          for ( int row = 0; row < height; row++ ) {
-            uint32_t *rowPtr = ((uint32_t*) mFramebuffer.mutableBytes) + (row * width);
-            for ( int col = 0; col < width; col++ ) {
-              int X = (rowPtr[col] >> 8) & 0xFF;
-              int Y = rowPtr[col] & 0xFF;
-              fprintf(stdout, "(%2d %2d) ", X, Y);
-            }
-            fprintf(stdout, "\n");
-          }
-          
-          fprintf(stdout, "done\n");
-        }
-        
-        // Compare to expected (X, Y) coord values
-
-        uint32_t *renderedPixelsPtr = (uint32_t*) mFramebuffer.mutableBytes;
-        
-        NSData *expectedData = self.huffRenderFrame.render_pass_expected_coords[savedPass];
-        uint32_t *expectedDataPtr = (uint32_t*) expectedData.bytes;
-        
-        if ((1)) {
-          // Dump (X,Y) from 16 bit output
-          fprintf(stdout, "(X,Y)\n");
-          
-          for ( int row = 0; row < height; row++ ) {
-            for ( int col = 0; col < width; col++ ) {
-              int offset = (row * width) + col;
-              uint32_t pixel = renderedPixelsPtr[offset];
-              int X = (pixel >> 8) & 0xFF;
-              int Y = pixel & 0xFF;
-              uint32_t expectedPixel = expectedDataPtr[offset];
-              int exX = (expectedPixel >> 8) & 0xFF;
-              int exY = expectedPixel & 0xFF;
-              fprintf(stdout, "(%2d %2d) ?= (%2d %2d), ", X, Y, exX, exY);
-              
-              if ((X != exX) || (Y != exY)) {
-                if (assertOnValueDiff) {
-                  assert(0);
-                }
-              }
-            }
-            fprintf(stdout, "\n");
-          }
-          
-          fprintf(stdout, "done\n");
-        }
-      }
-    }
-#endif // DEBUG
-     
-     */
 
     // Debug stages from each render cycle
     
@@ -1542,6 +1357,68 @@ const static unsigned int blockDim = 2;
       // Query output texture
       
       for (int renderStep = 0; renderStep < (blockDim * blockDim); renderStep++) {
+        
+        // symbol
+        
+        {
+          id<MTLTexture> txt = self.huffRenderFrame.render_pass_saved_symbolsTexture[renderStep];
+          
+          NSData *pixelsData = [self.class getTexturePixels:txt];
+          
+          int width = (int) txt.width;
+          int height = (int) txt.height;
+          
+          // Dump output words as BGRA
+          
+          fprintf(stdout, "render pass saved symbols %d\n", renderStep);
+          
+          if ((1)) {
+            // Dump 24 bit number
+            
+            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
+            
+            for ( int row = 0; row < height; row++ ) {
+              for ( int col = 0; col < width; col++ ) {
+                int offset = (row * width) + col;
+                int v = pixelsPtr[offset] & 0x00FFFFFF;
+                fprintf(stdout, "%5d ", v);
+              }
+              fprintf(stdout, "\n");
+            }
+            
+            fprintf(stdout, "done\n");
+          }
+          
+          uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
+          
+          NSData *expectedData = self.huffRenderFrame.render_pass_expected_symbols[renderStep];
+          uint8_t *expectedDataPtr = (uint8_t*) expectedData.bytes;
+          
+          if ((1)) {
+            // Dump 24 bit output
+            fprintf(stdout, "(symbols)\n");
+            
+            for ( int row = 0; row < height; row++ ) {
+              for ( int col = 0; col < width; col++ ) {
+                int offset = (row * width) + col;
+                uint32_t pixel = pixelsPtr[offset];
+                int v = pixel & 0xFFFFFF;
+                uint32_t expectedPixel = expectedDataPtr[offset];
+                int exV = expectedPixel & 0xFFFFFF;
+                fprintf(stdout, "%5d ?= %5d, ", v, exV);
+                
+                if (v != exV) {
+                  if (assertOnValueDiff) {
+                    assert(0);
+                  }
+                }
+              }
+              fprintf(stdout, "\n");
+            }
+            
+            fprintf(stdout, "done\n");
+          }
+        }
         
         // coords
 
@@ -1740,7 +1617,6 @@ const static unsigned int blockDim = 2;
             
             fprintf(stdout, "done\n");
           }
-
         }
         
         {
@@ -1982,27 +1858,7 @@ const static unsigned int blockDim = 2;
         }
         
         fprintf(stdout, "done\n");
-      }
-      
-      if ((0)) {
-        // Dump (X,Y) from 16 bit output
-        
-        fprintf(stdout, "(X,Y)\n");
-        
-        for ( int row = 0; row < height; row++ ) {
-          uint32_t *rowPtr = ((uint32_t*) mFramebuffer.mutableBytes) + (row * width);
-          for ( int col = 0; col < width; col++ ) {
-            //int decodedSymbol = rowPtr[col] & 0xFF;
-            int X = (rowPtr[col] >> 8) & 0xFF;
-            int Y = rowPtr[col] & 0xFF;
-            fprintf(stdout, "(%2d %2d) ", X, Y);
-          }
-          fprintf(stdout, "\n");
-        }
-        
-        fprintf(stdout, "done\n");
-      }
-
+      }      
     }
     
     // Capture the render to texture state at the render to size
