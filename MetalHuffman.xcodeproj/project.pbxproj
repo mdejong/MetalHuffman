@@ -53,7 +53,7 @@
 		3AF7E9BF1EB64A46003BB06D /* AAPLRenderer.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AAPLRenderer.m; sourceTree = "<group>"; };
 		3AF7E9C01EB64A46003BB06D /* AAPLShaderTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AAPLShaderTypes.h; sourceTree = "<group>"; };
 		3AF7E9C11EB64A46003BB06D /* AAPLShaders.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = AAPLShaders.metal; sourceTree = "<group>"; };
-		3AF7E9C81EB64A46003BB06D /* BasicRenderToSameTexture.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BasicRenderToSameTexture.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3AF7E9C81EB64A46003BB06D /* MetalHuffman.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MetalHuffman.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3AF7E9CC1EB64A46003BB06D /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		3AF7E9D11EB64A46003BB06D /* AAPLAppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AAPLAppDelegate.h; sourceTree = "<group>"; };
 		3AF7E9D21EB64A46003BB06D /* AAPLAppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AAPLAppDelegate.m; sourceTree = "<group>"; };
@@ -62,7 +62,7 @@
 		3AF7E9D81EB64A46003BB06D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		3AF7E9DB1EB64A46003BB06D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		3AF7E9DD1EB64A46003BB06D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		3AF7E9E21EB64A46003BB06D /* BasicRenderToSameTexture.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BasicRenderToSameTexture.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3AF7E9E21EB64A46003BB06D /* MetalHuffman.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MetalHuffman.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3AF7E9E51EB64A46003BB06D /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		3AF7E9EA1EB64A46003BB06D /* AAPLAppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AAPLAppDelegate.h; sourceTree = "<group>"; };
 		3AF7E9EB1EB64A46003BB06D /* AAPLAppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AAPLAppDelegate.m; sourceTree = "<group>"; };
@@ -70,7 +70,7 @@
 		3AF7E9EE1EB64A46003BB06D /* AAPLViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AAPLViewController.m; sourceTree = "<group>"; };
 		3AF7E9F11EB64A46003BB06D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		3AF7E9F31EB64A46003BB06D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		3AF7E9F81EB64A46003BB06D /* BasicRenderToSameTexture.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BasicRenderToSameTexture.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3AF7E9F81EB64A46003BB06D /* MetalHuffman.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MetalHuffman.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3AF7E9FB1EB64A46003BB06D /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		3AF7EA001EB64A46003BB06D /* AAPLViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AAPLViewController.h; sourceTree = "<group>"; };
 		3AF7EA011EB64A46003BB06D /* AAPLViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AAPLViewController.m; sourceTree = "<group>"; };
@@ -186,9 +186,9 @@
 		3AF7E9C91EB64A46003BB06D /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				3AF7E9C81EB64A46003BB06D /* BasicRenderToSameTexture.app */,
-				3AF7E9E21EB64A46003BB06D /* BasicRenderToSameTexture.app */,
-				3AF7E9F81EB64A46003BB06D /* BasicRenderToSameTexture.app */,
+				3AF7E9C81EB64A46003BB06D /* MetalHuffman.app */,
+				3AF7E9E21EB64A46003BB06D /* MetalHuffman.app */,
+				3AF7E9F81EB64A46003BB06D /* MetalHuffman.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -280,9 +280,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		3AF7E9C71EB64A46003BB06D /* BasicRenderToSameTexture-iOS */ = {
+		3AF7E9C71EB64A46003BB06D /* MetalHuffman-iOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3AF7EA1B1EB64A46003BB06D /* Build configuration list for PBXNativeTarget "BasicRenderToSameTexture-iOS" */;
+			buildConfigurationList = 3AF7EA1B1EB64A46003BB06D /* Build configuration list for PBXNativeTarget "MetalHuffman-iOS" */;
 			buildPhases = (
 				3AF7E9C41EB64A46003BB06D /* Sources */,
 				3AF7E9C51EB64A46003BB06D /* Frameworks */,
@@ -292,14 +292,14 @@
 			);
 			dependencies = (
 			);
-			name = "BasicRenderToSameTexture-iOS";
+			name = "MetalHuffman-iOS";
 			productName = iOS;
-			productReference = 3AF7E9C81EB64A46003BB06D /* BasicRenderToSameTexture.app */;
+			productReference = 3AF7E9C81EB64A46003BB06D /* MetalHuffman.app */;
 			productType = "com.apple.product-type.application";
 		};
-		3AF7E9E11EB64A46003BB06D /* BasicRenderToSameTexture-tvOS */ = {
+		3AF7E9E11EB64A46003BB06D /* MetalHuffman-tvOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3AF7EA1E1EB64A46003BB06D /* Build configuration list for PBXNativeTarget "BasicRenderToSameTexture-tvOS" */;
+			buildConfigurationList = 3AF7EA1E1EB64A46003BB06D /* Build configuration list for PBXNativeTarget "MetalHuffman-tvOS" */;
 			buildPhases = (
 				3AF7E9DE1EB64A46003BB06D /* Sources */,
 				3AF7E9DF1EB64A46003BB06D /* Frameworks */,
@@ -309,14 +309,14 @@
 			);
 			dependencies = (
 			);
-			name = "BasicRenderToSameTexture-tvOS";
+			name = "MetalHuffman-tvOS";
 			productName = tvOS;
-			productReference = 3AF7E9E21EB64A46003BB06D /* BasicRenderToSameTexture.app */;
+			productReference = 3AF7E9E21EB64A46003BB06D /* MetalHuffman.app */;
 			productType = "com.apple.product-type.application";
 		};
-		3AF7E9F71EB64A46003BB06D /* BasicRenderToSameTexture-macOS */ = {
+		3AF7E9F71EB64A46003BB06D /* MetalHuffman-macOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3AF7EA211EB64A46003BB06D /* Build configuration list for PBXNativeTarget "BasicRenderToSameTexture-macOS" */;
+			buildConfigurationList = 3AF7EA211EB64A46003BB06D /* Build configuration list for PBXNativeTarget "MetalHuffman-macOS" */;
 			buildPhases = (
 				3AF7E9F41EB64A46003BB06D /* Sources */,
 				3AF7E9F51EB64A46003BB06D /* Frameworks */,
@@ -326,9 +326,9 @@
 			);
 			dependencies = (
 			);
-			name = "BasicRenderToSameTexture-macOS";
+			name = "MetalHuffman-macOS";
 			productName = macOS;
-			productReference = 3AF7E9F81EB64A46003BB06D /* BasicRenderToSameTexture.app */;
+			productReference = 3AF7E9F81EB64A46003BB06D /* MetalHuffman.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -355,7 +355,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 3AF7E9BB1EB64A46003BB06D /* Build configuration list for PBXProject "BasicRenderToSameTexture" */;
+			buildConfigurationList = 3AF7E9BB1EB64A46003BB06D /* Build configuration list for PBXProject "MetalHuffman" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
@@ -368,9 +368,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				3AF7E9C71EB64A46003BB06D /* BasicRenderToSameTexture-iOS */,
-				3AF7E9E11EB64A46003BB06D /* BasicRenderToSameTexture-tvOS */,
-				3AF7E9F71EB64A46003BB06D /* BasicRenderToSameTexture-macOS */,
+				3AF7E9C71EB64A46003BB06D /* MetalHuffman-iOS */,
+				3AF7E9E11EB64A46003BB06D /* MetalHuffman-tvOS */,
+				3AF7E9F71EB64A46003BB06D /* MetalHuffman-macOS */,
 			);
 		};
 /* End PBXProject section */
@@ -598,7 +598,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 10.3;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.helpurock.BasicTexturing;
-				PRODUCT_NAME = BasicRenderToSameTexture;
+				PRODUCT_NAME = MetalHuffman;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -618,7 +618,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 10.3;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.helpurock.BasicTexturing;
-				PRODUCT_NAME = BasicRenderToSameTexture;
+				PRODUCT_NAME = MetalHuffman;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -636,7 +636,7 @@
 				INFOPLIST_FILE = tvOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.example.apple-samplecode.BasicTexturing${SAMPLE_CODE_DISAMBIGUATOR}";
-				PRODUCT_NAME = BasicRenderToSameTexture;
+				PRODUCT_NAME = MetalHuffman;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = appletvos;
 				TARGETED_DEVICE_FAMILY = 3;
@@ -654,7 +654,7 @@
 				INFOPLIST_FILE = tvOS/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = "com.example.apple-samplecode.BasicTexturing${SAMPLE_CODE_DISAMBIGUATOR}";
-				PRODUCT_NAME = BasicRenderToSameTexture;
+				PRODUCT_NAME = MetalHuffman;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = appletvos;
 				TARGETED_DEVICE_FAMILY = 3;
@@ -676,7 +676,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.example.apple-samplecode.BasicTexturing${SAMPLE_CODE_DISAMBIGUATOR}";
-				PRODUCT_NAME = BasicRenderToSameTexture;
+				PRODUCT_NAME = MetalHuffman;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
 			};
@@ -695,7 +695,7 @@
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 10.12;
 				PRODUCT_BUNDLE_IDENTIFIER = "com.example.apple-samplecode.BasicTexturing${SAMPLE_CODE_DISAMBIGUATOR}";
-				PRODUCT_NAME = BasicRenderToSameTexture;
+				PRODUCT_NAME = MetalHuffman;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = macosx;
 			};
@@ -704,7 +704,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		3AF7E9BB1EB64A46003BB06D /* Build configuration list for PBXProject "BasicRenderToSameTexture" */ = {
+		3AF7E9BB1EB64A46003BB06D /* Build configuration list for PBXProject "MetalHuffman" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3AF7EA191EB64A46003BB06D /* Debug */,
@@ -713,7 +713,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3AF7EA1B1EB64A46003BB06D /* Build configuration list for PBXNativeTarget "BasicRenderToSameTexture-iOS" */ = {
+		3AF7EA1B1EB64A46003BB06D /* Build configuration list for PBXNativeTarget "MetalHuffman-iOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3AF7EA1C1EB64A46003BB06D /* Debug */,
@@ -722,7 +722,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3AF7EA1E1EB64A46003BB06D /* Build configuration list for PBXNativeTarget "BasicRenderToSameTexture-tvOS" */ = {
+		3AF7EA1E1EB64A46003BB06D /* Build configuration list for PBXNativeTarget "MetalHuffman-tvOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3AF7EA1F1EB64A46003BB06D /* Debug */,
@@ -731,7 +731,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3AF7EA211EB64A46003BB06D /* Build configuration list for PBXNativeTarget "BasicRenderToSameTexture-macOS" */ = {
+		3AF7EA211EB64A46003BB06D /* Build configuration list for PBXNativeTarget "MetalHuffman-macOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3AF7EA221EB64A46003BB06D /* Debug */,
