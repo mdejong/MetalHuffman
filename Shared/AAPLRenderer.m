@@ -306,7 +306,7 @@ const static unsigned int blockDim = 8;
     self = [super init];
     if(self)
     {
-      isCaptureRenderedTextureEnabled = 0;
+      isCaptureRenderedTextureEnabled = 1;
       
       mtkView.depthStencilPixelFormat = MTLPixelFormatInvalid;
       
@@ -960,17 +960,6 @@ const static unsigned int blockDim = 8;
   
   // Compute shader
 
-#if !defined(DEBUG)
-  // Cannot use just 1 encoder when doing blit actions in DEBUG mode
-#define USE_ONE_COMPUTE_ENCODER
-#endif // DEBUG
-  
-#if defined(USE_ONE_COMPUTE_ENCODER)
-  id <MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
-  
-  [computeEncoder setComputePipelineState:_computePipelineState];
-#endif
-  
   for ( int renderStep = 0; renderStep < (blockDim * blockDim); renderStep++ )
   {
 //    if (renderStep == 3) {
@@ -981,11 +970,9 @@ const static unsigned int blockDim = 8;
     
     {
     
-#if defined(USE_ONE_COMPUTE_ENCODER)
-#else
-      id <MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
-      [computeEncoder setComputePipelineState:_computePipelineState];
-#endif
+    id <MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
+    
+    [computeEncoder setComputePipelineState:_computePipelineState];
     
     // The output texture for a compute pass is the block padded
     // texture, each render pass writes to the proper output location.
@@ -1043,10 +1030,8 @@ const static unsigned int blockDim = 8;
     [computeEncoder dispatchThreadgroups:_threadgroupRenderPassCount
                      threadsPerThreadgroup:_threadgroupRenderPassSize];
     
-#if defined(USE_ONE_COMPUTE_ENCODER)
-#else
-      [computeEncoder endEncoding];
-#endif
+    [computeEncoder endEncoding];
+    
     }
     
 #if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
@@ -1105,11 +1090,6 @@ const static unsigned int blockDim = 8;
     [blitEncoder endEncoding];
 #endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
   } // end of render steps loop
-  
-#if defined(USE_ONE_COMPUTE_ENCODER)
-    [computeEncoder endEncoding];
-#else
-#endif
   
   // Crop when : (_render_texture.width != _render_reorder_out.width) || (_render_texture.height != _render_reorder_out.height)
   
