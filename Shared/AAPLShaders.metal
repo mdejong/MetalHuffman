@@ -183,7 +183,7 @@ huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(0)]],
                   constant RenderStepConst & renderStepStruct [[ buffer(AAPLComputeRenderStepConst) ]],
                   ushort2 gid [[thread_position_in_grid]])
 {
-  const ushort blockDim = 2;
+  const ushort blockDim = 8;
   // FIXME: bit and impl for both
   ushort blockX = gid.x / blockDim;
   ushort blockY = gid.y / blockDim;
@@ -208,6 +208,8 @@ huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(0)]],
   // blocki depends on the block that the output pixel corresponds to
   int blockiThisPixel = blockiGroupRoot + blockIterOffset;
 
+  // Huffman decode logic from this point, given a blocki
+  
   IterateState iState = iterPtr[blockiThisPixel];
   
   // If the code reached here, then this specific pixel is the one

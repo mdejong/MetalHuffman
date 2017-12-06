@@ -1120,12 +1120,37 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       
       break;
     }
+      
+    case TEST_LARGE_RANDOM: {
+      renderFrame.renderWidth = 256;
+      renderFrame.renderHeight = 256;
+      
+      sranddev();
+      
+      NSMutableArray *mValues = [NSMutableArray array];
+      
+      for ( int row = 0; row < renderFrame.renderHeight; row++ ) {
+        for ( int col = 0; col < renderFrame.renderWidth; col++ ) {
+          // Range (0, RAND_MAX)
+          int r = rand();
+          float normalized = r / (float) RAND_MAX;
+          
+          int byteVal = round(normalized * 255);
+          
+          [mValues addObject:@(byteVal)];
+        }
+      }
+      
+      renderFrame.inputData = [Util bytesArrayToData:mValues];
+      
+      break;
+    }
   }
   
   assert(renderFrame.inputData);
   
-  renderFrame.capture = TRUE;
-  //renderFrame.capture = FALSE;
+  //renderFrame.capture = TRUE;
+  renderFrame.capture = FALSE;
   
 # if defined(DEBUG)
   if (renderFrame.capture) {

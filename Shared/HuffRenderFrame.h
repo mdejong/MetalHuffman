@@ -4,7 +4,8 @@ typedef enum {
   TEST_4x4_INCREASING1 = 0,
   TEST_4x4_INCREASING2,
   TEST_4x8_INCREASING1,
-  TEST_2x8_INCREASING1
+  TEST_2x8_INCREASING1,
+  TEST_LARGE_RANDOM
 } HuffRenderFrameConfig;
 
 // Define this symbol to enable functionality that captures

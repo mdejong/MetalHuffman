@@ -24,7 +24,7 @@ Implementation of renderer class which perfoms Metal setup and per frame renderi
 
 #import "Util.h"
 
-const static unsigned int blockDim = 2;
+const static unsigned int blockDim = 8;
 
 @interface AAPLRenderer ()
 
@@ -40,12 +40,6 @@ const static unsigned int blockDim = 2;
 
   // Our compute pipeline composed of our kernal defined in the .metal shader file
   id <MTLComputePipelineState> _computePipelineState;
-
-#if defined(DEBUG)
-  id <MTLComputePipelineState> _reorderCoordsComputePipelineState;
-#endif // DEBUG
-  
-  id <MTLComputePipelineState> _reorderComputePipelineState;
   
   // Compute kernel parameters
   //MTLSize _threadgroupSize;
@@ -341,8 +335,9 @@ const static unsigned int blockDim = 2;
       
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING2;
-      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
+//      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
+        HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
@@ -553,38 +548,6 @@ const static unsigned int blockDim = 2;
         //   information about what went wrong.  (Metal API validation is enabled by default
         //   when a debug build is run from Xcode)
         NSLog(@"Failed to create compute pipeline state, error %@", error);
-        return nil;
-      }
-
-#if defined(DEBUG)
-      id <MTLFunction> kernelFunctionReorderCoords = [defaultLibrary newFunctionWithName:@"reorderComputeKernelCoords"];
-      
-      _reorderCoordsComputePipelineState = [_device newComputePipelineStateWithFunction:kernelFunctionReorderCoords
-                                                                            error:&error];
-      
-      if(!_reorderCoordsComputePipelineState)
-      {
-        // Compute pipeline State creation could fail if kernelFunction failed to load from the
-        //   library.  If the Metal API validation is enabled, we automatically be given more
-        //   information about what went wrong.  (Metal API validation is enabled by default
-        //   when a debug build is run from Xcode)
-        NSLog(@"Failed to create reorder compute coords pipeline state, error %@", error);
-        return nil;
-      }
-#endif // DEBUG
-      
-      id <MTLFunction> kernelFunctionReorder = [defaultLibrary newFunctionWithName:@"reorderComputeKernel"];
-      
-      _reorderComputePipelineState = [_device newComputePipelineStateWithFunction:kernelFunctionReorder
-                                                                     error:&error];
-      
-      if(!_reorderComputePipelineState)
-      {
-        // Compute pipeline State creation could fail if kernelFunction failed to load from the
-        //   library.  If the Metal API validation is enabled, we automatically be given more
-        //   information about what went wrong.  (Metal API validation is enabled by default
-        //   when a debug build is run from Xcode)
-        NSLog(@"Failed to create reorder compute pipeline state, error %@", error);
         return nil;
       }
       
@@ -1071,36 +1034,6 @@ const static unsigned int blockDim = 2;
     
     }
     
-    /*
-    // Save _render_pass in DEBUG mode to debug individual steps
-    
-#if defined(DEBUG)
-    if (self.huffRenderFrame.render_pass_saved_symbolsTexture)
-    {
-    id<MTLBlitCommandEncoder> blitEncoder = [commandBuffer blitCommandEncoder];
-    
-    id<MTLTexture> rt = self.huffRenderFrame.render_pass_saved_symbolsTexture[renderStep];
-    assert(rt);
-    
-    MTLSize txtSize = MTLSizeMake(rt.width, rt.height, 1);
-    
-    MTLOrigin txtOrigin = MTLOriginMake(0, 0, 0);
-    
-    [blitEncoder copyFromTexture:debugSymbolsTexture
-                     sourceSlice:0
-                     sourceLevel:0
-                    sourceOrigin:txtOrigin
-                      sourceSize:txtSize
-                       toTexture:rt
-                destinationSlice:0
-                destinationLevel:0
-               destinationOrigin:txtOrigin];
-    
-    [blitEncoder endEncoding];
-    }
-#endif // DEBUG
-    */
-     
 #if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
     // Save each output buffer for each render step
 
@@ -1156,87 +1089,6 @@ const static unsigned int blockDim = 2;
 
     [blitEncoder endEncoding];
 #endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
-    
-    /*
-    // Emit coordinates for _render_pass, this will be the (X, Y)
-    // coordinates where the rendered pixel in each block would
-    // be written to.
-    
-#if defined(DEBUG)
-    if (self.huffRenderFrame.render_pass_saved_coordsTexture)
-    {
-      id<MTLTexture> rct = self.huffRenderFrame.render_pass_saved_coordsTexture[renderStep];
-      assert(rct);
-      
-      //fprintf(stdout, "_render_pass_coords_saved : pass %d : render into texture %p\n", renderStep, rct);
-      
-      id <MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
-     
-      [computeEncoder setComputePipelineState:_reorderCoordsComputePipelineState];
-      
-      // input texture
-      
-      [computeEncoder setTexture:_render_pass
-                         atIndex:0];
-      
-      // output texture
-      
-      [computeEncoder setTexture:rct
-                         atIndex:1];
-      
-      // renderStep copied to constant space
-      
-      id<MTLBuffer> renderStepBuffer = [_render_step_values objectAtIndex:renderStep];
-      
-      [computeEncoder setBuffer:renderStepBuffer
-                         offset:0
-                        atIndex:0];
-      
-      [computeEncoder dispatchThreadgroups:_threadgroupRenderPassCount
-                     threadsPerThreadgroup:_threadgroupRenderPassSize];
-      
-      [computeEncoder endEncoding];
-    }
-#endif // DEBUG
-    */
-    
-    // A second shader will read from the N blocks just rendered and reorder
-    // each block of data and place the data in the correct output location
-    // in the original ordering. This logic operates on smaller blocks
-    // size and writes to the larger _render_reorder_out texture.
-    
-    /*
-    if ((1))
-    {
-      id <MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
-      
-      [computeEncoder setComputePipelineState:_reorderComputePipelineState];
-      
-      // input texture
-      
-      [computeEncoder setTexture:_render_pass
-                         atIndex:0];
-      
-      // output texture
-      
-      [computeEncoder setTexture:_render_reorder_out
-                         atIndex:1];
-      
-      
-      // renderStep copied to constant space
-
-      id<MTLBuffer> renderStepBuffer = [_render_step_values objectAtIndex:renderStep];
-      [computeEncoder setBuffer:renderStepBuffer
-                         offset:0
-                        atIndex:0];
-      
-      [computeEncoder dispatchThreadgroups:_threadgroupRenderPassCount
-                     threadsPerThreadgroup:_threadgroupRenderPassSize];
-      
-      [computeEncoder endEncoding];
-    }
-     */
-    
   } // end of render steps loop
   
   // Crop when : (_render_texture.width != _render_reorder_out.width) || (_render_texture.height != _render_reorder_out.height)
