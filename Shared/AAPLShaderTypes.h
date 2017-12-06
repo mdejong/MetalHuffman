@@ -35,6 +35,7 @@ typedef enum AAPLComputeBufferIndex
   AAPLComputeBlockStartBitOffsets = 1,
   AAPLComputeHuffBuff = 2,
   AAPLComputeHuffSymbolTable = 3,
+  AAPLComputeRenderStepConst = 4,
 } AAPLComputeBufferIndex;
 
 // Texture index values shared between shader and C code to ensure Metal shader buffer inputs match

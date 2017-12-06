@@ -43,9 +43,6 @@ typedef enum {
 @property (nonatomic, copy) NSArray *render_pass_expected_bitWidth;
 @property (nonatomic, copy) NSArray *render_pass_expected_bitPattern;
 
-@property (nonatomic, copy) NSArray *render_pass_saved_symbolsTexture;
-@property (nonatomic, copy) NSArray *render_pass_saved_coordsTexture;
-
 #if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
 
 @property (nonatomic, copy) NSArray *render_pass_saved_debugPixelBlockiTexture;
@@ -53,6 +50,9 @@ typedef enum {
 @property (nonatomic, copy) NSArray *render_pass_saved_debugCurrentBitOffsetTexture;
 @property (nonatomic, copy) NSArray *render_pass_saved_debugBitWidthTexture;
 @property (nonatomic, copy) NSArray *render_pass_saved_debugBitPatternTexture;
+
+@property (nonatomic, copy) NSArray *render_pass_saved_symbolsTexture;
+@property (nonatomic, copy) NSArray *render_pass_saved_coordsTexture;
 
 #endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
 

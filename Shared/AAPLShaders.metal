@@ -173,13 +173,14 @@ huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(0)]],
                   texture2d<half, access::write>  debugCurrentBitOffsetTexture  [[texture(3)]],
                   texture2d<half, access::write>  debugBitWidthTexture  [[texture(4)]],
                   texture2d<half, access::write>  debugBitPatternTexture  [[texture(5)]],
-//                  texture2d<half, access::write>  debugSymbolsTexture  [[texture(6)]],
-//                  texture2d<half, access::write>  debugCoordTexture  [[texture(7)]],
+                  texture2d<half, access::write>  debugSymbolsTexture  [[texture(6)]],
+                  texture2d<half, access::write>  debugCoordTexture  [[texture(7)]],
 #endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
                   device IterateState *iterPtr [[ buffer(AAPLComputeBufferIter) ]],
                   const device uint32_t *blockStartBitOffsetsPtr [[ buffer(AAPLComputeBlockStartBitOffsets) ]],
                   const device uint8_t *huffBuff [[ buffer(AAPLComputeHuffBuff) ]],
                   const device HuffLookupSymbol *huffSymbolTable [[ buffer(AAPLComputeHuffSymbolTable) ]],
+                  constant RenderStepConst & renderStepStruct [[ buffer(AAPLComputeRenderStepConst) ]],
                   ushort2 gid [[thread_position_in_grid]])
 {
   const ushort blockDim = 2;
@@ -187,11 +188,11 @@ huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(0)]],
   ushort blockX = gid.x / blockDim;
   ushort blockY = gid.y / blockDim;
 
-  const ushort numWholeBlocksInWidth = (wTexture.get_width() / blockDim);
+  //const ushort numWholeBlocksInWidth = (wTexture.get_width() / blockDim);
   //const ushort numBlocksInWidth = numWholeBlocksInWidth + (((wTexture.get_width() % blockDim) != 0) ? 1 : 0);
   //const ushort numBlocksInWidth = numWholeBlocksInWidth;
-  //const ushort numBlocksInWidth = 1;
-  int blocki = (int(blockY) * numWholeBlocksInWidth) + blockX;
+  const ushort numBlocksInWidth = 1;
+  int blocki = (int(blockY) * numBlocksInWidth) + blockX;
   
   // Each range of (blockDim * blockDim) blocks maps to a root value which is added to
   // the calculated blocki for each pixel. For example, a 4x4 input represents 2
@@ -242,6 +243,8 @@ huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(0)]],
   iState.numBitsRead += hls.bitWidth;
   iterPtr[blockiThisPixel] = iState;
   
+  ushort2 outCoords = block_render_coords_to_image_coords(gid, blockDim, renderStepStruct.outWidthInBlocks, renderStepStruct.renderStep);
+  
 #if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
   // blocki value that the output pixel (x,y) corresponds to
   {
@@ -278,10 +281,28 @@ huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(0)]],
     half4 color4  = half4(0.0h, ((pattern >> 8) & 0xFF)/255.0h, (pattern & 0xFF)/255.0h, 1.0h);
     debugBitPatternTexture.write(color4, gid);
   }
+  
+  // Symbol in render pass layout as BGRA
+  
+  {
+    half4 color4  = half4(0.0h, 0.0h, hls.symbol/255.0h, 1.0h);
+    debugSymbolsTexture.write(color4, gid);
+  }
+
+  // Coord where symbol will be written to in render pass layout
+  
+  // FIXME: These (X,Y) values are represented here as 8 bit values bit they
+  // will need to be 12 bit values to fully represent 4096 max size!
+  
+  {
+    half4 color4  = half4(0/255.0h, outCoords.x/255.0h, outCoords.y/255.0h, 1.0h);
+    debugCoordTexture.write(color4, gid);
+  }
 #endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
   
   half4 outColor  = half4(0.0h, 0.0h, hls.symbol/255.0h, 1.0h);
-  wTexture.write(outColor, gid);
+  //wTexture.write(outColor, gid);
+  wTexture.write(outColor, outCoords);
 }
 
 // Given coordinates, calculate relative coordinates in a 2d grid
