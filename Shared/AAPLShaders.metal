@@ -104,6 +104,45 @@ samplingPassThroughShader(RasterizerData in [[stage_in]],
   
 }
 
+// Given input coordinates from a block render layout where each pixel represents
+// a coordinate in the image layout blocks generate the output coordinate
+// where the pixel should be written in the block spaced image coordinates.
+
+ushort2 block_render_coords_to_image_coords(const ushort2 renderBlockCoords, const ushort blockDim, const ushort numBlocksFitWidth);
+
+ushort2 block_render_coords_to_image_coords(const ushort2 renderBlockCoords,
+                                            const ushort blockDim,
+                                            const ushort numBlocksFitWidth,
+                                            const ushort renderStep)
+{
+  ushort2 blockCoords = renderBlockCoords / blockDim;
+  // The (X,Y) coordinate of the block root for current pixel
+  ushort2 blockRootCoords = (blockCoords * blockDim);
+  // The blocki offset for current pixel
+  uint blockiRoot = (uint(blockRootCoords.y) * blockDim) + blockRootCoords.x;
+  
+  ushort2 offsetFromBlockStartCoords = (renderBlockCoords - blockRootCoords);
+  uint offsetFromBlockStart = (uint(offsetFromBlockStartCoords.y) * blockDim) + offsetFromBlockStartCoords.x;
+  
+  // Map a block to offset, a 2x2 would be (0, 1, 2, 3)
+  uint blocki = blockiRoot + offsetFromBlockStart;
+  
+  // To fit coords into output width, need to pass in a constant
+  // block width since this shader does not have a texture with that info.
+  ushort2 blockiFitCoords = ushort2(blocki % numBlocksFitWidth, blocki / numBlocksFitWidth);
+  
+  // blockiFitCoords now fits the blocki into a fixed width, but need to multiply
+  // by blockDim again to get back to original coord system instead of block (X,Y)
+  
+  ushort2 outCoords = blockiFitCoords * blockDim;
+  
+  // Add renderStepStruct.renderStep which corresponds to the (dx,dy) in pixels.
+  
+  outCoords += ushort2(renderStep % blockDim, renderStep / blockDim);
+  
+  return outCoords;
+}
+
 // huffman decoding kernel
 
 // 4x4 with dim = 2
@@ -139,7 +178,7 @@ huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(0)]],
                   const device uint32_t *blockStartBitOffsetsPtr [[ buffer(AAPLComputeBlockStartBitOffsets) ]],
                   const device uint8_t *huffBuff [[ buffer(AAPLComputeHuffBuff) ]],
                   const device HuffLookupSymbol *huffSymbolTable [[ buffer(AAPLComputeHuffSymbolTable) ]],
-                  uint2 gid [[thread_position_in_grid]])
+                  ushort2 gid [[thread_position_in_grid]])
 {
   // nop out early when the pixel is outside of bounds
   //if ((gid.x >= wTexture.get_width()) || (gid.y >= wTexture.get_height())) {
@@ -151,11 +190,11 @@ huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(0)]],
   ushort blockX = gid.x / blockDim;
   ushort blockY = gid.y / blockDim;
 
-  //const ushort numWholeBlocksInWidth = (wTexture.get_width() / blockDim);
+  const ushort numWholeBlocksInWidth = (wTexture.get_width() / blockDim);
   //const ushort numBlocksInWidth = numWholeBlocksInWidth + (((wTexture.get_width() % blockDim) != 0) ? 1 : 0);
   //const ushort numBlocksInWidth = numWholeBlocksInWidth;
-  const ushort numBlocksInWidth = 1;
-  int blocki = (int(blockY) * numBlocksInWidth) + blockX;
+  //const ushort numBlocksInWidth = 1;
+  int blocki = (int(blockY) * numWholeBlocksInWidth) + blockX;
   
   // Each range of (blockDim * blockDim) blocks maps to a root value which is added to
   // the calculated blocki for each pixel. For example, a 4x4 input represents 2
@@ -346,85 +385,26 @@ kernel void
 reorderComputeKernelCoords(texture2d<half, access::read>  rTexture  [[texture(0)]],
                            texture2d<half, access::write> wTexture  [[texture(1)]],
                            constant RenderStepConst & renderStepStruct [[ buffer(0) ]],
-                           // FIXME: Change gid to ushort2 type
-                           uint2 gid [[thread_position_in_grid]])
+                           ushort2 gid [[thread_position_in_grid]])
 {
   const ushort blockDim = 2;
-  
-  ushort2 blockCoords = ushort2(gid) / blockDim;
-  // The (X,Y) coordinate of the block root for current pixel
-  ushort2 blockRootCoords = (blockCoords * blockDim);
-  // The blocki offset for current pixel
-  uint blockiRoot = (uint(blockRootCoords.y) * blockDim) + blockRootCoords.x;
-  
-  ushort xOffsetFromBlockStart = gid.x - blockRootCoords.x;
-  ushort yOffsetFromBlockStart = gid.y - blockRootCoords.y;
-  uint offsetFromBlockStart = (uint(yOffsetFromBlockStart) * blockDim) + xOffsetFromBlockStart;
-
-  // Map a block to offset, a 2x2 would be (0, 1, 2, 3)
-  uint blocki = blockiRoot + offsetFromBlockStart;
-  
-  // To fit coords into output width, need to pass in a constant
-  // block width since this shader does not have a texture with that info.
-  
-  const ushort numBlocksFitWidth = renderStepStruct.outWidthInBlocks;
-  
-  ushort2 blockiFitCoords = ushort2(blocki % numBlocksFitWidth, blocki / numBlocksFitWidth);
-  
-  // blockiFitCoords now fits the blocki into a fixed width, but need to multiply
-  // by blockDim again to get back to original coord system instead of block (X,Y)
-  
-  ushort2 outCoords = blockiFitCoords * blockDim;
-  
-  // Add renderStepStruct.renderStep which corresponds to the (dx,dy) in pixels.
-  
-  outCoords += ushort2(renderStepStruct.renderStep % blockDim, renderStepStruct.renderStep / blockDim);
-  
+  ushort2 outCoords = block_render_coords_to_image_coords(gid, blockDim, renderStepStruct.outWidthInBlocks, renderStepStruct.renderStep);
+   
   half4 outColor  = half4(0.0h, outCoords.x/255.0h, outCoords.y/255.0h, 1.0h);
   
   wTexture.write(outColor, gid);
 }
 
+// Write the symbol output to the image coordinate output
+
 kernel void
 reorderComputeKernel(texture2d<half, access::read>  rTexture  [[texture(0)]],
                      texture2d<half, access::write> wTexture  [[texture(1)]],
                      constant RenderStepConst & renderStepStruct [[ buffer(0) ]],
-                     // FIXME: Change gid to ushort2 type
-                     uint2 gid [[thread_position_in_grid]])
+                     ushort2 gid [[thread_position_in_grid]])
 {  
   const ushort blockDim = 2;
-  
-  ushort2 blockCoords = ushort2(gid) / blockDim;
-  // The (X,Y) coordinate of the block root for current pixel
-  ushort2 blockRootCoords = (blockCoords * blockDim);
-  // The blocki offset for current pixel
-  uint blockiRoot = (uint(blockRootCoords.y) * blockDim) + blockRootCoords.x;
-  
-  ushort xOffsetFromBlockStart = gid.x - blockRootCoords.x;
-  ushort yOffsetFromBlockStart = gid.y - blockRootCoords.y;
-  uint offsetFromBlockStart = (uint(yOffsetFromBlockStart) * blockDim) + xOffsetFromBlockStart;
-  
-  // Map a block to offset, a 2x2 would be (0, 1, 2, 3)
-  uint blocki = blockiRoot + offsetFromBlockStart;
-  
-  // To fit coords into output width, need to pass in a constant
-  // block width since this shader does not have a texture with that info.
-  
-  const ushort numBlocksFitWidth = renderStepStruct.outWidthInBlocks;
-  
-  ushort2 blockiFitCoords = ushort2(blocki % numBlocksFitWidth, blocki / numBlocksFitWidth);
-  
-  // blockiFitCoords now fits the blocki into a fixed width, but need to multiply
-  // by blockDim again to get back to original coord system instead of block (X,Y)
-  
-  ushort2 outCoords = blockiFitCoords * blockDim;
-  
-  // Add renderStepStruct.renderStep which corresponds to the (dx,dy) in pixels.
-  
-  outCoords += ushort2(renderStepStruct.renderStep % blockDim, renderStepStruct.renderStep / blockDim);
-  
-  //half4 outColor  = half4(0.0h, outCoords.x/255.0h, outCoords.y/255.0h, 1.0h);
-  //wTexture.write(outColor, gid);
+  ushort2 outCoords = block_render_coords_to_image_coords(gid, blockDim, renderStepStruct.outWidthInBlocks, renderStepStruct.renderStep);
   
   half4 inColor  = rTexture.read(gid);
   wTexture.write(inColor, outCoords);
