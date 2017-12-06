@@ -173,6 +173,8 @@ huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(0)]],
                   texture2d<half, access::write>  debugCurrentBitOffsetTexture  [[texture(3)]],
                   texture2d<half, access::write>  debugBitWidthTexture  [[texture(4)]],
                   texture2d<half, access::write>  debugBitPatternTexture  [[texture(5)]],
+//                  texture2d<half, access::write>  debugSymbolsTexture  [[texture(6)]],
+//                  texture2d<half, access::write>  debugCoordTexture  [[texture(7)]],
 #endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
                   device IterateState *iterPtr [[ buffer(AAPLComputeBufferIter) ]],
                   const device uint32_t *blockStartBitOffsetsPtr [[ buffer(AAPLComputeBlockStartBitOffsets) ]],
@@ -180,11 +182,6 @@ huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(0)]],
                   const device HuffLookupSymbol *huffSymbolTable [[ buffer(AAPLComputeHuffSymbolTable) ]],
                   ushort2 gid [[thread_position_in_grid]])
 {
-  // nop out early when the pixel is outside of bounds
-  //if ((gid.x >= wTexture.get_width()) || (gid.y >= wTexture.get_height())) {
-  //  return;
-  //}
-
   const ushort blockDim = 2;
   // FIXME: bit and impl for both
   ushort blockX = gid.x / blockDim;
@@ -205,7 +202,7 @@ huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(0)]],
   ushort yOffsetFromBlockStart = gid.y - (blockY * blockDim);
   
   // Square block
-  ushort blockIterOffset = (yOffsetFromBlockStart * blockDim) + xOffsetFromBlockStart;
+  int blockIterOffset = (yOffsetFromBlockStart * blockDim) + xOffsetFromBlockStart;
   
   // blocki depends on the block that the output pixel corresponds to
   int blockiThisPixel = blockiGroupRoot + blockIterOffset;
@@ -244,24 +241,6 @@ huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(0)]],
   HuffLookupSymbol hls = huffSymbolTable[inputBitPattern];
   iState.numBitsRead += hls.bitWidth;
   iterPtr[blockiThisPixel] = iState;
-
-  // Write (X,Y) coordinate position for each pixel
-  
-  //half4 outColor  = half4(0.0h, 0.0h, blockIterOffset/255.0h, 1.0h);
-  
-  //half4 outColor  = half4(0.0h, 0.0h, blockiThisPixel/255.0h, 1.0h);
-  
-  //half4 outColor  = half4(0.0h, xOffsetFromBlockStart/255.0h, yOffsetFromBlockStart/255.0h, 1.0h);
-
-  //half4 outColor  = half4(0.0h, 0.0h, blockStartBitOffsetsPtr[blockiThisPixel]/255.0h, 1.0h);
-  
-  //half4 outColor  = half4(0.0h, 0.0h, hls.bitWidth/255.0h, 1.0h);
-
-//  half4 outColor  = half4(0.0h, 0.0h, numBitsRead/255.0h, 1.0h);
-
-  //half4 outColor  = half4(0.0h, ((inputBitPattern >> 8) & 0xFF)/255.0h, (inputBitPattern&0xFF)/255.0h, 1.0h);
-  
-  half4 outColor  = half4(0.0h, 0.0h, hls.symbol/255.0h, 1.0h);
   
 #if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
   // blocki value that the output pixel (x,y) corresponds to
@@ -301,13 +280,7 @@ huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(0)]],
   }
 #endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
   
-  // write out blocki at each pixel
-  //half4 outColor  = half4(((blocki >> 16) & 0xFF)/255.0h, ((blocki >> 8) & 0xFF)/255.0h, (blocki & 0xFF)/255.0h, 1.0h);
-  
-  // write out the number of bits consumed at each pixel
-  //uint32_t bOff = blockStartBitOffsetsPtr[blocki];
-  //half4 outColor  = half4(0.0h, ((bOff >> 8) & 0xFF)/255.0h, (bOff & 0xFF)/255.0h, 1.0h);
-  
+  half4 outColor  = half4(0.0h, 0.0h, hls.symbol/255.0h, 1.0h);
   wTexture.write(outColor, gid);
 }
 
