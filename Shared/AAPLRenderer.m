@@ -289,6 +289,8 @@ const static unsigned int blockDim = BLOCK_DIM;
       
       mtkView.depthStencilPixelFormat = MTLPixelFormatInvalid;
       
+      mtkView.preferredFramesPerSecond = 30;
+      
       _device = mtkView.device;
 
       if (isCaptureRenderedTextureEnabled) {
