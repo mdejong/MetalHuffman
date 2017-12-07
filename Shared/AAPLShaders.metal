@@ -29,14 +29,6 @@ typedef struct
 
 } RasterizerData;
 
-// Iterate state
-
-typedef struct
-{
-  // 16 bit field that contains the number of bits read for a given block
-  ushort numBitsRead;
-} IterateState;
-
 typedef struct {
   uint8_t symbol;
   uint8_t bitWidth;
@@ -104,6 +96,24 @@ samplingPassThroughShader(RasterizerData in [[stage_in]],
   
 }
 
+// Compute kernel that crops an input width and height while copying data to an output
+// texture. In addition, this implementation will convert byte data to grayscale pixels.
+
+kernel void crop_copy_and_grayscale(
+                                    texture2d<ushort, access::read> inTexture [[texture(0)]],
+                                    texture2d<half, access::write> outTexture [[texture(1)]],
+                                    uint2 gid [[thread_position_in_grid]])
+{
+  if (gid.x >= outTexture.get_width() || gid.y >= outTexture.get_height()) {
+    return;
+  }
+
+  ushort inByte = inTexture.read(gid).x;
+  half value = inByte / 255.0h;
+  half4 outGrayscale = half4(value, value, value, 1.0);
+  outTexture.write(outGrayscale, gid);
+}
+
 // huffman decoding kernel
 
 // 4x4 with dim = 2
@@ -128,7 +138,7 @@ samplingPassThroughShader(RasterizerData in [[stage_in]],
 // block0 one byte at a time.
 
 kernel void
-huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(AAPLTexturePaddedOut)]],
+huffComputeKernel(texture2d<ushort, access::write>  wTexture  [[texture(AAPLTexturePaddedOut)]],
 #if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
                   texture2d<half, access::write>  debugPixelBlockiTexture  [[texture(AAPLTextureBlocki)]],
                   texture2d<half, access::write>  debugRootBitOffsetTexture  [[texture(AAPLTextureRootBitOffset)]],
@@ -209,8 +219,9 @@ huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(AAPLTextur
     
     // FIXME: emit a single byte at a time via shader write as opposed to 32 bit pixels
     
-    half4 outSymbolColor  = half4(0.0h, 0.0h, hls.symbol/255.0h, 1.0h);
-    wTexture.write(outSymbolColor, outCoords);
+    //half4 outSymbolColor  = half4(0.0h, 0.0h, hls.symbol/255.0h, 1.0h);
+    ushort outSymbol = hls.symbol;
+    wTexture.write(outSymbol, outCoords);
     
 #if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
     // Each debug value save operation will write to the block location but

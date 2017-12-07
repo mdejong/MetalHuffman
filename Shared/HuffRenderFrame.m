@@ -658,6 +658,9 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
     }
       
     case TEST_LARGE_RANDOM: {
+//      renderFrame.renderWidth = 2048;
+//      renderFrame.renderHeight = 1536;
+      
 // Too large, causes runtime error
       renderFrame.renderWidth = 1024;
       renderFrame.renderHeight = 1024;

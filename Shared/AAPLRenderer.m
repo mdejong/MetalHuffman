@@ -40,11 +40,14 @@ const static unsigned int blockDim = BLOCK_DIM;
 
   // Our compute pipeline composed of our kernal defined in the .metal shader file
   id <MTLComputePipelineState> _computePipelineState;
-  
-  // Compute kernel parameters
-  //MTLSize _threadgroupSize;
-  //MTLSize _threadgroupCount;
 
+  id <MTLComputePipelineState> _cropCopyComputePipelineState;
+  
+  // Render size at original width and height in terms of blocks
+  MTLSize _threadgroupSize;
+  MTLSize _threadgroupCount;
+
+  // Render size when each block is reduced to a single render pixel (thread)
   MTLSize _threadgroupRenderPassSize;
   MTLSize _threadgroupRenderPassCount;
   
@@ -185,6 +188,39 @@ const static unsigned int blockDim = BLOCK_DIM;
   return metalTexture;
 }
 
+// Allocate 8 bit unsigned int texture
+
+- (id<MTLTexture>) make8bitTexture:(CGSize)size bytes:(uint8_t*)bytes
+{
+  MTLTextureDescriptor *textureDescriptor = [[MTLTextureDescriptor alloc] init];
+  
+  // Each value in this texture is an 8 bit integer value in the range (0,255) inclusive
+  
+  textureDescriptor.pixelFormat = MTLPixelFormatR8Uint;
+  textureDescriptor.width = (int) size.width;
+  textureDescriptor.height = (int) size.height;
+  
+  // Create our texture object from the device and our descriptor
+  id<MTLTexture> texture = [_device newTextureWithDescriptor:textureDescriptor];
+  
+  if (bytes != NULL) {
+    NSUInteger bytesPerRow = textureDescriptor.width * sizeof(uint8_t);
+    
+    MTLRegion region = {
+      { 0, 0, 0 },                   // MTLOrigin
+      {textureDescriptor.width, textureDescriptor.height, 1} // MTLSize
+    };
+    
+    // Copy the bytes from our data object into the texture
+    [texture replaceRegion:region
+               mipmapLevel:0
+                 withBytes:bytes
+               bytesPerRow:bytesPerRow];
+  }
+  
+  return texture;
+}
+
 + (NSString*) getResourcePath:(NSString*)resFilename
 {
   NSBundle* appBundle = [NSBundle mainBundle];
@@ -256,9 +292,7 @@ const static unsigned int blockDim = BLOCK_DIM;
   MTLSize mSize;
   MTLSize mCount;
   
-  //mSize = MTLSizeMake(blockDim, blockDim, 1);
-  // An input block of (N * N) blocks is represented by a single render pixel.
-  mSize = MTLSizeMake(1, 1, 1);
+  mSize = MTLSizeMake(blockDim, blockDim, 1);
 
   // Calculate the number of rows and columns of thread groups given the width of our input image.
   //   Ensure we cover the entire image (or more) so we process every pixel.
@@ -285,7 +319,7 @@ const static unsigned int blockDim = BLOCK_DIM;
     self = [super init];
     if(self)
     {
-      isCaptureRenderedTextureEnabled = 0;
+      isCaptureRenderedTextureEnabled = 1;
       
       mtkView.depthStencilPixelFormat = MTLPixelFormatInvalid;
       
@@ -314,12 +348,12 @@ const static unsigned int blockDim = BLOCK_DIM;
       
       // Query size and byte data for input frame that will be rendered
       
-//      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING1;
+      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING2;
 //      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_6x4_NOT_SQUARE;
-      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
+//      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
@@ -350,9 +384,12 @@ const static unsigned int blockDim = BLOCK_DIM;
       _render_texture = [self makeBGRACoreVideoTexture:CGSizeMake(width,height)
                                     cvPixelBufferRefPtr:&_render_cv_buffer];
       
-      // One render pass processed 1/(N*N) the number of total blocks
+      // One render pass processed 1/(N*N) the number of total blocks, note that this output
+      // texture is byte oriented, not 32 bit pixels.
       
-      _render_block_padded_texture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
+      //_render_block_padded_texture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
+      
+      _render_block_padded_texture = [self make8bitTexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) bytes:NULL];
       
       // Debug capture textures, these are same dimensions as _render_pass
       
@@ -418,10 +455,27 @@ const static unsigned int blockDim = BLOCK_DIM;
         return nil;
       }
       
+      // Compute pipeline for crop copy and grayscale conversion
+
+      id <MTLFunction> cropCopyKernelFunction = [defaultLibrary newFunctionWithName:@"crop_copy_and_grayscale"];
+      
+      _cropCopyComputePipelineState = [_device newComputePipelineStateWithFunction:cropCopyKernelFunction
+                                                                     error:&error];
+      
+      if(!_cropCopyComputePipelineState)
+      {
+        // Compute pipeline State creation could fail if kernelFunction failed to load from the
+        //   library.  If the Metal API validation is enabled, we automatically be given more
+        //   information about what went wrong.  (Metal API validation is enabled by default
+        //   when a debug build is run from Xcode)
+        NSLog(@"Failed to create compute pipeline state, error %@", error);
+        return nil;
+      }
+      
       // The kernel's render size is in terms of blocks where 1 pixel corresponds
       // to each input block of dimensions (blockDim*blockDim).
 
-//      [self.class calculateThreadgroup:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) blockDim:blockDim sizePtr:&_threadgroupSize countPtr:&_threadgroupCount];
+      [self.class calculateThreadgroup:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) blockDim:blockDim sizePtr:&_threadgroupSize countPtr:&_threadgroupCount];
       
       // Calc compute kernel parameter for one render pass where 1/(N*N) worth of pixels
       // are rendered in each iteration.
@@ -436,7 +490,9 @@ const static unsigned int blockDim = BLOCK_DIM;
         renderSize.height = blockHeight;
       }
       
-      [self.class calculateThreadgroup:renderSize blockDim:blockDim sizePtr:&_threadgroupRenderPassSize countPtr:&_threadgroupRenderPassCount];
+      // 1 pixel in thread group represents 1 block to be decoded (1 thread)
+      
+      [self.class calculateThreadgroup:renderSize blockDim:1 sizePtr:&_threadgroupRenderPassSize countPtr:&_threadgroupRenderPassCount];
       
         /// Create our render pipeline
 
@@ -859,7 +915,7 @@ const static unsigned int blockDim = BLOCK_DIM;
   
   // Crop when : (_render_texture.width != _render_reorder_out.width) || (_render_texture.height != _render_reorder_out.height)
   
-  if (1) {
+  if (0) {
     int width = (int) _render_texture.width;
     int height = (int) _render_texture.height;
     
@@ -880,6 +936,31 @@ const static unsigned int blockDim = BLOCK_DIM;
                destinationOrigin:dstOrigin];
     
     [blitEncoder endEncoding];
+  }
+  
+  // Cropping copy operation from _render_block_padded_texture which is unsigned int values
+  // to _render_texture which contains pixel values. This compute texture will copy
+  // values and convert byte values to grayscale pixels.
+  
+  if (1) {
+    id <MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
+    
+    [computeEncoder setComputePipelineState:_cropCopyComputePipelineState];
+    
+    // input texture
+
+    [computeEncoder setTexture:_render_block_padded_texture
+                       atIndex:0];
+    
+    // output texture (defines the crop region)
+    
+    [computeEncoder setTexture:_render_texture
+                       atIndex:1];
+    
+    [computeEncoder dispatchThreadgroups:_threadgroupCount
+                   threadsPerThreadgroup:_threadgroupSize];
+    
+    [computeEncoder endEncoding];
   }
 
   // Obtain a renderPassDescriptor generated from the view's drawable textures
