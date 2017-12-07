@@ -24,7 +24,7 @@ Implementation of renderer class which perfoms Metal setup and per frame renderi
 
 #import "Util.h"
 
-const static unsigned int blockDim = 8;
+const static unsigned int blockDim = BLOCK_DIM;
 
 @interface AAPLRenderer ()
 
@@ -63,33 +63,10 @@ const static unsigned int blockDim = 8;
     CVPixelBufferRef _render_cv_buffer;
     id<MTLTexture> _render_texture;
 
-//    id<MTLTexture> _render_pass;
-
-#if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
-  // Debug capture textures, these are same dimensions as _render_pass
-
-  id<MTLTexture> debugPixelBlockiTexture;
-  id<MTLTexture> debugRootBitOffsetTexture;
-  id<MTLTexture> debugCurrentBitOffsetTexture;
-  id<MTLTexture> debugBitWidthTexture;
-  id<MTLTexture> debugBitPatternTexture;
-  id<MTLTexture> debugSymbolsTexture;
-  id<MTLTexture> debugCoordsTexture;
-#endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
-  
-    id<MTLTexture> _render_reorder_out;
+    id<MTLTexture> _render_block_padded_texture;
   
     // The Metal buffer in which we store our vertex data
     id<MTLBuffer> _vertices;
-
-    // The Metal buffer in which we store our iteration state data
-    id<MTLBuffer> _iter;
-
-    // The render step in constant that is passed into the shader
-    // has to be initialized before the actual loop, since it is
-    // a memory ref.
-  
-  NSMutableArray *_render_step_values;
   
   // The Metal buffer stores the number of bits into the
   // huffman codes buffer where the symbol at a given
@@ -336,8 +313,9 @@ const static unsigned int blockDim = 8;
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING2;
 //      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
-//      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
-        HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
+      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
+//      HuffRenderFrameConfig hcfg = TEST_6x4_NOT_SQUARE;
+//      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
@@ -368,114 +346,21 @@ const static unsigned int blockDim = 8;
       _render_texture = [self makeBGRACoreVideoTexture:CGSizeMake(width,height)
                                     cvPixelBufferRefPtr:&_render_cv_buffer];
       
-      const int numInBlockGroup = blockDim * blockDim;
-      
-//      int numInBlockGroup = (blockWidth * blockHeight) / (blockDim * blockDim);
-//      int numBlocksForOneRender = numInBlockGroup * blockDim;
-      
-      int totalNumBlocks = (blockWidth * blockHeight);
-      
-      int numBlocksInOneRender = totalNumBlocks / numInBlockGroup;
-      
-      assert((totalNumBlocks % numInBlockGroup) == 0);
-      
       // One render pass processed 1/(N*N) the number of total blocks
       
-      //_render_pass = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-      
-#if defined(CAPTURE_RENDER_PASS_OUTPUT)
-      {
-        NSMutableArray *m_expected_arr = [NSMutableArray array];
-        m_expected_arr = [NSMutableArray array];
-        for (int i = 0; i < (blockDim * blockDim); i++) {
-          id<MTLTexture> rt = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-          [m_expected_arr addObject:rt];
-        }
-        renderFrame.render_pass_saved_symbolsTexture = m_expected_arr;
-      }
-#endif // DEBUG
-
-#if defined(CAPTURE_RENDER_PASS_OUTPUT)
-      {
-        NSMutableArray *m_expected_arr = [NSMutableArray array];
-        m_expected_arr = [NSMutableArray array];
-        for (int i = 0; i < (blockDim * blockDim); i++) {
-          id<MTLTexture> rt = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-          [m_expected_arr addObject:rt];
-        }
-        renderFrame.render_pass_saved_coordsTexture = m_expected_arr;
-      }
-#endif // DEBUG
+      _render_block_padded_texture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
       
       // Debug capture textures, these are same dimensions as _render_pass
       
 #if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
-      debugPixelBlockiTexture = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-      debugRootBitOffsetTexture = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-      debugCurrentBitOffsetTexture = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-      debugBitWidthTexture = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-      debugBitPatternTexture = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-      debugSymbolsTexture = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-      debugCoordsTexture = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-      
-# if defined(CAPTURE_RENDER_PASS_OUTPUT)
-      {
-        NSMutableArray *m_expected_arr = [NSMutableArray array];
-        m_expected_arr = [NSMutableArray array];
-        for (int i = 0; i < (blockDim * blockDim); i++) {
-          id<MTLTexture> rt = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-          [m_expected_arr addObject:rt];
-        }
-        renderFrame.render_pass_saved_debugPixelBlockiTexture = m_expected_arr;
-      }
-
-      {
-        NSMutableArray *m_expected_arr = [NSMutableArray array];
-        m_expected_arr = [NSMutableArray array];
-        for (int i = 0; i < (blockDim * blockDim); i++) {
-          id<MTLTexture> rt = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-          [m_expected_arr addObject:rt];
-        }
-        renderFrame.render_pass_saved_debugRootBitOffsetTexture = m_expected_arr;
-      }
-
-      {
-        NSMutableArray *m_expected_arr = [NSMutableArray array];
-        m_expected_arr = [NSMutableArray array];
-        for (int i = 0; i < (blockDim * blockDim); i++) {
-          id<MTLTexture> rt = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-          [m_expected_arr addObject:rt];
-        }
-        renderFrame.render_pass_saved_debugCurrentBitOffsetTexture = m_expected_arr;
-      }
-      
-      {
-        NSMutableArray *m_expected_arr = [NSMutableArray array];
-        m_expected_arr = [NSMutableArray array];
-        for (int i = 0; i < (blockDim * blockDim); i++) {
-          id<MTLTexture> rt = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-          [m_expected_arr addObject:rt];
-        }
-        renderFrame.render_pass_saved_debugBitWidthTexture = m_expected_arr;
-      }
-
-      {
-        NSMutableArray *m_expected_arr = [NSMutableArray array];
-        m_expected_arr = [NSMutableArray array];
-        for (int i = 0; i < (blockDim * blockDim); i++) {
-          id<MTLTexture> rt = [self makeBGRATexture:CGSizeMake(blockDim, numBlocksInOneRender * blockDim) pixels:NULL];
-          [m_expected_arr addObject:rt];
-        }
-        renderFrame.render_pass_saved_debugBitPatternTexture = m_expected_arr;
-      }
-# endif // CAPTURE_RENDER_PASS_OUTPUT
-      
+      renderFrame.debugPixelBlockiTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
+      renderFrame.debugRootBitOffsetTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
+      renderFrame.debugCurrentBitOffsetTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
+      renderFrame.debugBitWidthTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
+      renderFrame.debugBitPatternTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
+      renderFrame.debugSymbolsTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
+      renderFrame.debugCoordsTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
 #endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
-      
-      // The _render_reorder_out texture is written to as whole blocks and it can later
-      // be cropped to match the original width x height as needed after huffman decode.
-      
-      _render_reorder_out = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
       
         // Set up a simple MTLBuffer with our vertices which include texture coordinates
       
@@ -504,34 +389,12 @@ const static unsigned int blockDim = 8;
       // Calculate the number of vertices by dividing the byte length by the size of each vertex
       _numVertices = sizeof(quadVertices) / sizeof(AAPLVertex);
       
-      // Create buffer that will hold read/write 32 bit values that are accessed
-      // for each pixel in a shared invocation.
-      
-      _iter = [_device newBufferWithLength:sizeof(uint16_t)*(blockWidth*blockHeight)
-                                   options:MTLResourceStorageModeShared];
-      
       // For each block, there is one 32 bit number that stores the next bit
       // offset into the huffman code buffer. Each successful code write operation
       // will read from 1 to 16 bits and increment the counter for a specific block.
       
       _blockStartBitOffsets = [_device newBufferWithLength:sizeof(uint32_t)*(blockWidth*blockHeight)
                                       options:MTLResourceStorageModeShared];
-
-      // Allocate and init render step values
-      
-      _render_step_values = [NSMutableArray array];
-      for (int i = 0; i < (blockDim * blockDim); i++) {
-        id<MTLBuffer> renderStep = [_device newBufferWithLength:sizeof(RenderStepConst)
-                                                        options:MTLResourceStorageModeShared];
-        
-        RenderStepConst rsc;
-        memset(&rsc, 0, sizeof(RenderStepConst));
-        rsc.outWidthInBlocks = blockWidth;
-        rsc.renderStep = i;
-        memcpy(renderStep.contents, &rsc, sizeof(RenderStepConst));
-        
-        [_render_step_values addObject:renderStep];
-      }
       
       // Load all the shader files with a metal file extension in the project
       id<MTLLibrary> defaultLibrary = [_device newDefaultLibrary];
@@ -551,7 +414,8 @@ const static unsigned int blockDim = 8;
         return nil;
       }
       
-      // Set the compute kernel's thread group size of N x N (includes padding)
+      // The kernel's render size is in terms of blocks where 1 pixel corresponds
+      // to each input block of dimensions (blockDim*blockDim).
 
 //      [self.class calculateThreadgroup:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) blockDim:blockDim sizePtr:&_threadgroupSize countPtr:&_threadgroupCount];
       
@@ -564,13 +428,8 @@ const static unsigned int blockDim = 8;
         assert((width % blockDim) == 0);
         assert((height % blockDim) == 0);
         
-        int blockWidth = width/blockDim;
-        int blockHeight = height/blockDim;
-        int numBlocks = blockWidth * blockHeight;
-        assert((numBlocks % (blockDim * blockDim)) == 0);
-        int numGroups = numBlocks / (blockDim * blockDim);
-        renderSize.width = 1;
-        renderSize.height = numGroups;
+        renderSize.width = blockWidth;
+        renderSize.height = blockHeight;
       }
       
       [self.class calculateThreadgroup:renderSize blockDim:blockDim sizePtr:&_threadgroupRenderPassSize countPtr:&_threadgroupRenderPassCount];
@@ -690,20 +549,7 @@ const static unsigned int blockDim = 8;
       // size with zero padding, so the output would need to be reordered back to
       // image order and then trimmed to width and height in order to match.
       
-      int outBlockOrderSymbolsNumBytes = (blockDim * blockDim * blockWidth * blockHeight);
-      //assert(inputSymbolsNumBytes == outBlockOrderSymbolsNumBytes);
-      
-      // Deal with case where the total number of blocks is not a multiple of the
-      // number of (blockDim * blockDim). For example, an 8x8 sized block needs
-      // 64 values to read at a time and so zero padding is needed to ensure that
-      // the total number of input blocks is padded out to 64 blocks.
-      
-      const int numBlocksInOneSet = (blockDim * blockDim);
-      const int numBytesInOneSet = numBlocksInOneSet * (blockDim * blockDim);
-      
-      while ((outBlockOrderSymbolsNumBytes % numBytesInOneSet) != 0) {
-        outBlockOrderSymbolsNumBytes += (blockDim * blockDim); // Add one zero padded block
-      }
+      int outBlockOrderSymbolsNumBytes = (blockDim * blockDim) * (blockWidth * blockHeight);
       
       // Generate input that is zero padded out to the number of blocks needed
       NSMutableData *outBlockOrderSymbolsData = [NSMutableData dataWithLength:outBlockOrderSymbolsNumBytes];
@@ -727,7 +573,7 @@ const static unsigned int blockDim = 8;
 
         printf("block order\n");
         
-        for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
+        for ( int blocki = 0; blocki < blockWidth * blockHeight; blocki++ ) {
           printf("block %5d : ", blocki);
           
           uint8_t *blockStartPtr = outBlockOrderSymbolsPtr + (blocki * (blockDim * blockDim));
@@ -945,66 +791,46 @@ const static unsigned int blockDim = 8;
   commandBuffer.label = @"RenderBGRACommand";
 
   // --------------------------------------------------------------------------
-
-  // Zero out input bit offsets that are passed into shader
   
-  memset((void*)_iter.contents, 0, _iter.length);
-    
   // Possible: create a hard coded render step that reads from the previous
   // pixel to the left is (x > 0) && (arr[x-1] > 0) so that a previous
   // render being done means that the number of bits is copied into next 16 bit slot.
   // Might also just have 63 render cycles hard coded so that each is done and
   // the offsets for each thing are constant and it moves the render along.
   
-//  [self copyInto32bitCoreVideoTexture:_render_cv_buffer pixels:&onOff[0]];
-  
   // Compute shader
 
-  for ( int renderStep = 0; renderStep < (blockDim * blockDim); renderStep++ )
   {
-//    if (renderStep == 3) {
-//      break;
-//    }
-    
-    // Compute shader that will read huffman bytes from N streams
-    
     {
     
     id <MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
     
     [computeEncoder setComputePipelineState:_computePipelineState];
     
-    // The output texture for a compute pass is the block padded
-    // texture, each render pass writes to the proper output location.
+    // output texture
     
-    [computeEncoder setTexture:_render_reorder_out
-                       atIndex:0];
+    [computeEncoder setTexture:_render_block_padded_texture
+                       atIndex:AAPLTexturePaddedOut];
     
 #if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
       // 4 more textures to debug decode state
 
-      [computeEncoder setTexture:debugPixelBlockiTexture
-                         atIndex:1];
-      [computeEncoder setTexture:debugRootBitOffsetTexture
-                         atIndex:2];
-      [computeEncoder setTexture:debugCurrentBitOffsetTexture
-                         atIndex:3];
-      [computeEncoder setTexture:debugBitWidthTexture
-                         atIndex:4];
-      [computeEncoder setTexture:debugBitPatternTexture
-                         atIndex:5];
-      [computeEncoder setTexture:debugSymbolsTexture
-                         atIndex:6];
-      [computeEncoder setTexture:debugCoordsTexture
-                         atIndex:7];
+      [computeEncoder setTexture:self.huffRenderFrame.debugPixelBlockiTexture
+                         atIndex:AAPLTextureBlocki];
+      [computeEncoder setTexture:self.huffRenderFrame.debugRootBitOffsetTexture
+                         atIndex:AAPLTextureRootBitOffset];
+      [computeEncoder setTexture:self.huffRenderFrame.debugCurrentBitOffsetTexture
+                         atIndex:AAPLTextureCurrentBitOffset];
+      [computeEncoder setTexture:self.huffRenderFrame.debugBitWidthTexture
+                         atIndex:AAPLTextureBitWidth];
+      [computeEncoder setTexture:self.huffRenderFrame.debugBitPatternTexture
+                         atIndex:AAPLTextureBitPattern];
+      [computeEncoder setTexture:self.huffRenderFrame.debugSymbolsTexture
+                         atIndex:AAPLTextureSymbols];
+      [computeEncoder setTexture:self.huffRenderFrame.debugCoordsTexture
+                         atIndex:AAPLTextureCoords];
 #endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
-      
-    // Read/Write buffer that tracks huffman decode state
     
-    [computeEncoder setBuffer:_iter
-                       offset:0
-                      atIndex:AAPLComputeBufferIter];
-      
     [computeEncoder setBuffer:_blockStartBitOffsets
                        offset:0
                       atIndex:AAPLComputeBlockStartBitOffsets];
@@ -1018,78 +844,14 @@ const static unsigned int blockDim = 8;
     [computeEncoder setBuffer:_huffSymbolTable
                        offset:0
                       atIndex:AAPLComputeHuffSymbolTable];
-      
-    // renderStep copied to constant space
-      
-    id<MTLBuffer> renderStepBuffer = [_render_step_values objectAtIndex:renderStep];
-      
-    [computeEncoder setBuffer:renderStepBuffer
-                       offset:0
-                      atIndex:AAPLComputeRenderStepConst];
-      
+
     [computeEncoder dispatchThreadgroups:_threadgroupRenderPassCount
                      threadsPerThreadgroup:_threadgroupRenderPassSize];
     
     [computeEncoder endEncoding];
     
     }
-    
-#if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
-    // Save each output buffer for each render step
-
-    id<MTLTexture> cRender_debugPixelBlockiTexture = self.huffRenderFrame.render_pass_saved_debugPixelBlockiTexture[renderStep];
-    id<MTLTexture> cRender_debugRootBitOffsetTexture = self.huffRenderFrame.render_pass_saved_debugRootBitOffsetTexture[renderStep];
-    id<MTLTexture> cRender_debugCurrentBitOffsetTexture = self.huffRenderFrame.render_pass_saved_debugCurrentBitOffsetTexture[renderStep];
-    id<MTLTexture> cRender_debugBitWidthTexture = self.huffRenderFrame.render_pass_saved_debugBitWidthTexture[renderStep];
-    id<MTLTexture> cRender_debugBitPatternTexture = self.huffRenderFrame.render_pass_saved_debugBitPatternTexture[renderStep];
-
-    id<MTLTexture> cRender_debugSymbolsTexture = self.huffRenderFrame.render_pass_saved_symbolsTexture[renderStep];
-    id<MTLTexture> cRender_debugCoordsTexture = self.huffRenderFrame.render_pass_saved_coordsTexture[renderStep];
-    
-    NSArray *inTxts = @[debugPixelBlockiTexture,
-                        debugRootBitOffsetTexture,
-                        debugCurrentBitOffsetTexture,
-                        debugBitWidthTexture,
-                        debugBitPatternTexture,
-                        debugSymbolsTexture,
-                        debugCoordsTexture];
-    NSArray *outTxts = @[cRender_debugPixelBlockiTexture,
-                         cRender_debugRootBitOffsetTexture,
-                         cRender_debugCurrentBitOffsetTexture,
-                         cRender_debugBitWidthTexture,
-                         cRender_debugBitPatternTexture,
-                         cRender_debugSymbolsTexture,
-                         cRender_debugCoordsTexture];
-
-    // Copy texture contents
-    
-    id<MTLBlitCommandEncoder> blitEncoder = [commandBuffer blitCommandEncoder];
-    
-    int len = (int) [inTxts count];
-    for ( int i = 0; i < len; i++ ) {
-      id<MTLTexture> inTxt = inTxts[i];
-      id<MTLTexture> outTxt = outTxts[i];
-      
-      assert(inTxt.width == outTxt.width);
-      assert(inTxt.height == outTxt.height);
-      
-      MTLSize txtSize = MTLSizeMake(inTxt.width, inTxt.height, 1);
-      MTLOrigin txtOrigin = MTLOriginMake(0, 0, 0);
-      
-      [blitEncoder copyFromTexture:inTxt
-                       sourceSlice:0
-                       sourceLevel:0
-                      sourceOrigin:txtOrigin
-                        sourceSize:txtSize
-                         toTexture:outTxt
-                  destinationSlice:0
-                  destinationLevel:0
-                 destinationOrigin:txtOrigin];
-    }
-
-    [blitEncoder endEncoding];
-#endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
-  } // end of render steps loop
+  }
   
   // Crop when : (_render_texture.width != _render_reorder_out.width) || (_render_texture.height != _render_reorder_out.height)
   
@@ -1103,7 +865,7 @@ const static unsigned int blockDim = 8;
     MTLOrigin srcOrigin = MTLOriginMake(0, 0, 0);
     MTLOrigin dstOrigin = MTLOriginMake(0, 0, 0);
     
-    [blitEncoder copyFromTexture:_render_reorder_out
+    [blitEncoder copyFromTexture:_render_block_padded_texture
                      sourceSlice:0
                      sourceLevel:0
                     sourceOrigin:srcOrigin
@@ -1150,7 +912,6 @@ const static unsigned int blockDim = 8;
     [renderEncoder popDebugGroup]; // RenderToTexture
     
     [renderEncoder endEncoding];
-
   }
     
   // --------------------------------------------------------------------------
@@ -1201,153 +962,19 @@ const static unsigned int blockDim = 8;
     // Print output of render pass in stages
     
     const int assertOnValueDiff = 1;
-
+    
     // Debug stages from each render cycle
     
 #if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
     if (isCaptureRenderedTextureEnabled && self.huffRenderFrame.capture) {
       // Query output texture
       
-      for (int renderStep = 0; renderStep < (blockDim * blockDim); renderStep++) {
-        
-        // symbol
-        
-        {
-          id<MTLTexture> txt = self.huffRenderFrame.render_pass_saved_symbolsTexture[renderStep];
-          
-          NSData *pixelsData = [self.class getTexturePixels:txt];
-          
-          int width = (int) txt.width;
-          int height = (int) txt.height;
-          
-          // Dump output words as BGRA
-          
-          fprintf(stdout, "render pass saved symbols %d\n", renderStep);
-          
-          if ((1)) {
-            // Dump 24 bit number
-            
-            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                int v = pixelsPtr[offset] & 0x00FFFFFF;
-                fprintf(stdout, "%5d ", v);
-              }
-              fprintf(stdout, "\n");
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-          
-          uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-          
-          NSData *expectedData = self.huffRenderFrame.render_pass_expected_symbols[renderStep];
-          uint8_t *expectedDataPtr = (uint8_t*) expectedData.bytes;
-          
-          if ((1)) {
-            // Dump 24 bit output
-            fprintf(stdout, "(symbols)\n");
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                uint32_t pixel = pixelsPtr[offset];
-                int v = pixel & 0xFFFFFF;
-                uint32_t expectedPixel = expectedDataPtr[offset];
-                int exV = expectedPixel & 0xFFFFFF;
-                fprintf(stdout, "%5d ?= %5d, ", v, exV);
-                
-                if (v != exV) {
-                  if (assertOnValueDiff) {
-                    assert(0);
-                  }
-                }
-              }
-              fprintf(stdout, "\n");
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-        }
-        
-        // coords
-
-        {
-          id<MTLTexture> txt = self.huffRenderFrame.render_pass_saved_coordsTexture[renderStep];
-          
-          NSData *pixelsData = [self.class getTexturePixels:txt];
-          
-          int width = (int) txt.width;
-          int height = (int) txt.height;
-          
-          // Dump output words as BGRA
-          
-          fprintf(stdout, "render pass saved coords : pass %d\n", renderStep);
-          
-          if ((1)) {
-            // FIXME: represent X,Y as 2 12 bit values
-            
-            // Dump (X,Y) from 16 bit output
-            
-            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-            
-            fprintf(stdout, "(X,Y)\n");
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                int X = (pixelsPtr[offset] >> 8) & 0xFF;
-                int Y = pixelsPtr[offset] & 0xFF;
-                fprintf(stdout, "(%2d %2d) ", X, Y);
-              }
-              fprintf(stdout, "\n");
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-          
-          // Compare to expected
-          
-          {
-            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-            
-            NSData *expectedData = self.huffRenderFrame.render_pass_expected_coords[renderStep];
-            uint32_t *expectedDataPtr = (uint32_t*) expectedData.bytes;
-            
-            if ((1)) {
-              fprintf(stdout, "(X,Y)\n");
-              
-              for ( int row = 0; row < height; row++ ) {
-                for ( int col = 0; col < width; col++ ) {
-                  int offset = (row * width) + col;
-                  uint32_t pixel = pixelsPtr[offset];
-                  int X = (pixel >> 8) & 0xFF;
-                  int Y = pixel & 0xFF;
-                  uint32_t expectedPixel = expectedDataPtr[offset];
-                  int exX = (expectedPixel >> 8) & 0xFF;
-                  int exY = expectedPixel & 0xFF;
-                  fprintf(stdout, "(%2d %2d) ?= (%2d %2d), ", X, Y, exX, exY);
-                  
-                  if ((X != exX) || (Y != exY)) {
-                    if (assertOnValueDiff) {
-                      assert(0);
-                    }
-                  }
-                }
-                fprintf(stdout, "\n");
-              }
-              
-              fprintf(stdout, "done\n");
-            }
-          }
-        }
+      {
         
         // blocki
         
         {
-          id<MTLTexture> txt = self.huffRenderFrame.render_pass_saved_debugPixelBlockiTexture[renderStep];
+          id<MTLTexture> txt = self.huffRenderFrame.debugPixelBlockiTexture;
           
           NSData *pixelsData = [self.class getTexturePixels:txt];
           
@@ -1356,7 +983,7 @@ const static unsigned int blockDim = 8;
           
           // Dump output words as BGRA
           
-          fprintf(stdout, "blocki for pixel : pass %d\n", renderStep);
+          fprintf(stdout, "blocki output\n");
           
           if ((1)) {
             // Dump 24 bit number
@@ -1380,8 +1007,10 @@ const static unsigned int blockDim = 8;
           {
             uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
             
-            NSData *expectedData = self.huffRenderFrame.render_pass_expected_blocki[renderStep];
+            NSData *expectedData = self.huffRenderFrame.expected_blocki;
             uint32_t *expectedDataPtr = (uint32_t*) expectedData.bytes;
+            
+            assert(expectedData.length == pixelsData.length);
 
             if ((1)) {
               // Dump 24 bit output
@@ -1409,10 +1038,11 @@ const static unsigned int blockDim = 8;
             }
 
           }
+
         }
         
         {
-          id<MTLTexture> txt = self.huffRenderFrame.render_pass_saved_debugRootBitOffsetTexture[renderStep];
+          id<MTLTexture> txt = self.huffRenderFrame.debugRootBitOffsetTexture;
           
           NSData *pixelsData = [self.class getTexturePixels:txt];
           
@@ -1421,7 +1051,7 @@ const static unsigned int blockDim = 8;
           
           // Dump output words as BGRA
           
-          fprintf(stdout, "root bit offset for pixel block : pass %d\n", renderStep);
+          fprintf(stdout, "root bit offset\n");
           
           if ((1)) {
             // Dump 24 bit number
@@ -1442,8 +1072,10 @@ const static unsigned int blockDim = 8;
           
           uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
           
-          NSData *expectedData = self.huffRenderFrame.render_pass_expected_rootBitOffset[renderStep];
+          NSData *expectedData = self.huffRenderFrame.expected_rootBitOffset;
           uint32_t *expectedDataPtr = (uint32_t*) expectedData.bytes;
+          
+          assert(expectedData.length == pixelsData.length);
           
           if ((1)) {
             // Dump 24 bit output
@@ -1469,10 +1101,11 @@ const static unsigned int blockDim = 8;
             
             fprintf(stdout, "done\n");
           }
+
         }
         
         {
-          id<MTLTexture> txt = self.huffRenderFrame.render_pass_saved_debugCurrentBitOffsetTexture[renderStep];
+          id<MTLTexture> txt = self.huffRenderFrame.debugCurrentBitOffsetTexture;
           
           NSData *pixelsData = [self.class getTexturePixels:txt];
           
@@ -1481,7 +1114,7 @@ const static unsigned int blockDim = 8;
           
           // Dump output words as BGRA
           
-          fprintf(stdout, "current bit offset for pixel : pass %d\n", renderStep);
+          fprintf(stdout, "current bit offset\n");
           
           if ((1)) {
             // Dump 24 bit number
@@ -1502,8 +1135,10 @@ const static unsigned int blockDim = 8;
           
           uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
           
-          NSData *expectedData = self.huffRenderFrame.render_pass_expected_currentBitOffset[renderStep];
+          NSData *expectedData = self.huffRenderFrame.expected_currentBitOffset;
           uint32_t *expectedDataPtr = (uint32_t*) expectedData.bytes;
+          
+          assert(expectedData.length == pixelsData.length);
           
           if ((1)) {
             // Dump 24 bit output
@@ -1532,8 +1167,10 @@ const static unsigned int blockDim = 8;
 
         }
         
+        // bit width
+        
         {
-          id<MTLTexture> txt = self.huffRenderFrame.render_pass_saved_debugBitWidthTexture[renderStep];
+          id<MTLTexture> txt = self.huffRenderFrame.debugBitWidthTexture;
           
           NSData *pixelsData = [self.class getTexturePixels:txt];
           
@@ -1542,7 +1179,7 @@ const static unsigned int blockDim = 8;
           
           // Dump output words as BGRA
           
-          fprintf(stdout, "current bit width for pixel : pass %d\n", renderStep);
+          fprintf(stdout, "current bit width\n");
           
           if ((1)) {
             // Dump 24 bit number
@@ -1563,8 +1200,10 @@ const static unsigned int blockDim = 8;
           
           uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
           
-          NSData *expectedData = self.huffRenderFrame.render_pass_expected_bitWidth[renderStep];
+          NSData *expectedData = self.huffRenderFrame.expected_bitWidth;
           uint32_t *expectedDataPtr = (uint32_t*) expectedData.bytes;
+          
+          assert(expectedData.length == pixelsData.length);
           
           if ((1)) {
             // Dump 24 bit output
@@ -1590,12 +1229,12 @@ const static unsigned int blockDim = 8;
             
             fprintf(stdout, "done\n");
           }
-
-          
         }
 
+        // symbol bit pattern
+        
         {
-          id<MTLTexture> txt = self.huffRenderFrame.render_pass_saved_debugBitPatternTexture[renderStep];
+          id<MTLTexture> txt = self.huffRenderFrame.debugBitPatternTexture;
           
           NSData *pixelsData = [self.class getTexturePixels:txt];
           
@@ -1604,7 +1243,7 @@ const static unsigned int blockDim = 8;
           
           // Dump output words as BGRA
           
-          fprintf(stdout, "bit pattern for pixel : pass %d\n", renderStep);
+          fprintf(stdout, "bit pattern\n");
           
           if ((1)) {
             // Dump 24 bit number
@@ -1633,8 +1272,10 @@ const static unsigned int blockDim = 8;
           
           uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
           
-          NSData *expectedData = self.huffRenderFrame.render_pass_expected_bitPattern[renderStep];
+          NSData *expectedData = self.huffRenderFrame.expected_bitPattern;
           uint32_t *expectedDataPtr = (uint32_t*) expectedData.bytes;
+          
+          assert(expectedData.length == pixelsData.length);
           
           if ((1)) {
             // Dump 24 bit output
@@ -1665,19 +1306,158 @@ const static unsigned int blockDim = 8;
           }
         }
         
-      } // end foreach renderStep
+        // emitted symbol
+        
+        {
+          id<MTLTexture> txt = self.huffRenderFrame.debugSymbolsTexture;
+          
+          NSData *pixelsData = [self.class getTexturePixels:txt];
+          
+          int width = (int) txt.width;
+          int height = (int) txt.height;
+          
+          // Dump output words as BGRA
+          
+          fprintf(stdout, "rendered symbol\n");
+          
+          if ((1)) {
+            // Dump 24 bit number
+            
+            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
+            
+            for ( int row = 0; row < height; row++ ) {
+              for ( int col = 0; col < width; col++ ) {
+                int offset = (row * width) + col;
+                int v = pixelsPtr[offset] & 0x00FFFFFF;
+                fprintf(stdout, "%5d ", v);
+              }
+              fprintf(stdout, "\n");
+            }
+            
+            fprintf(stdout, "done\n");
+          }
+          
+          uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
+          
+          NSData *expectedData = self.huffRenderFrame.expected_symbols;
+          uint8_t *expectedDataPtr = (uint8_t*) expectedData.bytes;
+          
+          //assert(expectedData.length == pixelsData.length);
+          
+          if ((1)) {
+            // Dump 24 bit output
+            fprintf(stdout, "(symbols)\n");
+            
+            for ( int row = 0; row < height; row++ ) {
+              for ( int col = 0; col < width; col++ ) {
+                int offset = (row * width) + col;
+                uint32_t pixel = pixelsPtr[offset];
+                int v = pixel & 0xFFFFFF;
+                uint32_t expectedPixel = expectedDataPtr[offset];
+                int exV = expectedPixel & 0xFFFFFF;
+                fprintf(stdout, "%5d ?= %5d, ", v, exV);
+                fflush(stdout);
+                
+                if (v != exV) {
+                  if (assertOnValueDiff) {
+                    assert(0);
+                  }
+                }
+              }
+              fprintf(stdout, "\n");
+            }
+            
+            fprintf(stdout, "done\n");
+          }
+        }
+        
+        // coords
+        
+        {
+          id<MTLTexture> txt = self.huffRenderFrame.debugCoordsTexture;
+          
+          NSData *pixelsData = [self.class getTexturePixels:txt];
+          
+          int width = (int) txt.width;
+          int height = (int) txt.height;
+          
+          // Dump output words as BGRA
+          
+          fprintf(stdout, "render coord\n");
+          
+          if ((1)) {
+            // FIXME: represent X,Y as 2 12 bit values
+            
+            // Dump (X,Y) from 16 bit output
+            
+            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
+            
+            fprintf(stdout, "(X,Y)\n");
+            
+            for ( int row = 0; row < height; row++ ) {
+              for ( int col = 0; col < width; col++ ) {
+                int offset = (row * width) + col;
+                int X = (pixelsPtr[offset] >> 8) & 0xFF;
+                int Y = pixelsPtr[offset] & 0xFF;
+                fprintf(stdout, "(%2d %2d) ", X, Y);
+              }
+              fprintf(stdout, "\n");
+            }
+            
+            fprintf(stdout, "done\n");
+          }
+          
+          // Compare to expected
+          
+          {
+            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
+            
+            NSData *expectedData = self.huffRenderFrame.expected_coords;
+            uint32_t *expectedDataPtr = (uint32_t*) expectedData.bytes;
+            
+            assert(expectedData.length == pixelsData.length);
+            
+            if ((1)) {
+              fprintf(stdout, "(X,Y)\n");
+              
+              for ( int row = 0; row < height; row++ ) {
+                for ( int col = 0; col < width; col++ ) {
+                  int offset = (row * width) + col;
+                  uint32_t pixel = pixelsPtr[offset];
+                  int X = (pixel >> 8) & 0xFF;
+                  int Y = pixel & 0xFF;
+                  uint32_t expectedPixel = expectedDataPtr[offset];
+                  int exX = (expectedPixel >> 8) & 0xFF;
+                  int exY = expectedPixel & 0xFF;
+                  fprintf(stdout, "(%2d %2d) ?= (%2d %2d), ", X, Y, exX, exY);
+                  
+                  if ((X != exX) || (Y != exY)) {
+                    if (assertOnValueDiff) {
+                      assert(0);
+                    }
+                  }
+                }
+                fprintf(stdout, "\n");
+              }
+              
+              fprintf(stdout, "done\n");
+            }
+          }
+        }
+        
+      }
       
       fprintf(stdout, "done all passes\n");
     }
 #endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
     
-    // Output of reorder shader
+    // Output of block padded shader write operation
     
     if (isCaptureRenderedTextureEnabled && self.huffRenderFrame.capture) {
       // Query output texture
       
       //id<MTLTexture> outTexture = _render_texture;
-      id<MTLTexture> outTexture = _render_reorder_out;
+      id<MTLTexture> outTexture = _render_block_padded_texture;
       
       // Copy texture data into debug framebuffer, note that this include 2x scale
       
@@ -1695,7 +1475,7 @@ const static unsigned int blockDim = 8;
       
       // Dump output words as BGRA
       
-      fprintf(stdout, "_render_reorder_out\n");
+      fprintf(stdout, "_render_block_padded_texture\n");
       
       if ((1)) {
         // Dump 24 bit values as int
@@ -1710,7 +1490,27 @@ const static unsigned int blockDim = 8;
         }
         
         fprintf(stdout, "done\n");
-      }      
+      }
+      
+      if ((0)) {
+        // Dump (X,Y) from 16 bit output
+        
+        fprintf(stdout, "(X,Y)\n");
+        
+        for ( int row = 0; row < height; row++ ) {
+          uint32_t *rowPtr = ((uint32_t*) mFramebuffer.mutableBytes) + (row * width);
+          for ( int col = 0; col < width; col++ ) {
+            //int decodedSymbol = rowPtr[col] & 0xFF;
+            int X = (rowPtr[col] >> 8) & 0xFF;
+            int Y = rowPtr[col] & 0xFF;
+            fprintf(stdout, "(%2d %2d) ", X, Y);
+          }
+          fprintf(stdout, "\n");
+        }
+        
+        fprintf(stdout, "done\n");
+      }
+
     }
     
     // Capture the render to texture state at the render to size

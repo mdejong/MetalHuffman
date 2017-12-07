@@ -22,6 +22,25 @@ appendPixelsAsData(NSMutableArray * mArr, NSArray * values)
   [mArr addObject:expectedData];
 }
 
+static NSData*
+formatXYCoordPixelsAsData(NSArray * values)
+{
+  // values is an array of pairs, flatten into pixels as: X=G Y=B
+  
+  NSMutableArray *mPixels = [NSMutableArray array];
+  
+  for ( NSArray *pair in values ) {
+    unsigned int X = [pair[0] unsignedIntValue];
+    unsigned int Y = [pair[1] unsignedIntValue];
+    unsigned int pixel = (0xFF << 24) | (X << 8) | (Y);
+    NSNumber *num = [NSNumber numberWithUnsignedInt:pixel];
+    [mPixels addObject:num];
+  }
+  
+  NSData *expectedData = [Util pixelsArrayToData:mPixels];
+  return expectedData;
+}
+
 static void
 appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
 {
@@ -54,10 +73,10 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       
       {
         NSArray *values = @[
-                            @0,  @1,  @4,  @5,
-                            @2,  @3,  @6,  @7,
-                            @8,  @9, @12, @13,
-                            @10,  @11, @14, @15,
+                            @0,   @1,  @4,  @5,
+                            @2,   @3,  @6,  @7,
+                            @8,   @9, @12, @13,
+                            @10, @11, @14, @15,
                             ];
         
         renderFrame.inputData = [Util bytesArrayToData:values];
@@ -65,238 +84,100 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
 
 #if defined(CAPTURE_RENDER_PASS_OUTPUT)
       
-      NSMutableArray *m_render_pass_expected_symbols = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_coords = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_blocki = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_rootBitOffset = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_currentBitOffset = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_bitWidth = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_bitPattern = [NSMutableArray array];
+      // blocki
       
-      // pass 0
+      {
+        NSArray *values = @[
+                            @0,   @0,  @1,  @1,
+                            @0,   @0,  @1,  @1,
+                            @2,   @2,  @3,  @3,
+                            @2,   @2,  @3,  @3,
+                            ];
+        
+        renderFrame.expected_blocki = [Util pixelsArrayToData:values];
+      }
       
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @0,  @4,
-                                @8,  @12,
-                                ]
-                              );
+      // rootBitOffset
+      
+      {
+        NSArray *values = @[
+                            @0,   @0,  @16,  @16,
+                            @0,   @0,  @16,  @16,
+                            @32,  @32, @48,  @48,
+                            @32,  @32, @48,  @48,
+                            ];
+        
+        renderFrame.expected_rootBitOffset = [Util pixelsArrayToData:values];
+      }
+      
+      // currentBitOffset
+      
+      {
+        NSArray *values = @[
+                            @0,   @4,   @0,  @4,
+                            @8,   @12,  @8,  @12,
+                            @0,   @4,   @0,  @4,
+                            @8,   @12,  @8,  @12,
+                            ];
+        
+        renderFrame.expected_currentBitOffset = [Util pixelsArrayToData:values];
+      }
+      
+      // bitWidth
+      
+      {
+        NSArray *values = @[
+                            @4,   @4,  @4,  @4,
+                            @4,   @4,  @4,  @4,
+                            @4,   @4,  @4,  @4,
+                            @4,   @4,  @4,  @4,
+                            ];
+        
+        renderFrame.expected_bitWidth = [Util pixelsArrayToData:values];
+      }
+      
+      // bitPattern
+      
+      {
+        NSArray *values = @[
+                            @(0x0123),   @(0x1234),  @(0x4567),  @(0x5678),
+                            @(0x2345),   @(0x3456),  @(0x6789),  @(0x789A),
+                            @(0x89AB),   @(0x9ABC),  @(0xCDEF),  @(0xDEF0),
+                            @(0xABCD),   @(0xBCDE),  @(0xEF00),  @(0xF000),
+                            ];
+        
+        renderFrame.expected_bitPattern = [Util pixelsArrayToData:values];
+      }
 
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                              @[
-                                @[@0, @0], @[@2, @0],
-                                @[@0, @2], @[@2, @2],
-                                ]
-                              );
+      // coords
       
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           ]
-                         );
-
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @16,
-                           @32,  @48,
-                           ]
-                         );
-
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @0,  @0,
-                           @0,  @0,
-                           ]
-                         );
-
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @4,
-                           @4,  @4,
-                           ]
-                         );
+      {
+        NSArray *values = @[
+                            @[@0, @0], @[@1, @0], @[@2, @0], @[@3, @0],
+                            @[@0, @1], @[@1, @1], @[@2, @1], @[@3, @1],
+                            
+                            @[@0, @2], @[@1, @2], @[@2, @2], @[@3, @2],
+                            @[@0, @3], @[@1, @3], @[@2, @3], @[@3, @3],
+                            ];
+        
+        renderFrame.expected_coords = formatXYCoordPixelsAsData(values);
+      }
       
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x0123),  @(0x4567),
-                           @(0x89AB),  @(0xCDEF),
-                           ]
-                         );
-      
-      // pass 1
-      
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @1,  @5,
-                                @9,  @13,
-                                ]
-                              );
-
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@1, @0], @[@3, @0],
-                                  @[@1, @2], @[@3, @2],
-                                  ]
-                                );
-      
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @16,
-                           @32,  @48,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @4,  @4,
-                           @4,  @4,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @4,
-                           @4,  @4,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x1234),  @(0x5678),
-                           @(0x9ABC),  @(0xDEF0),
-                           ]
-                         );
-      
-      // pass 2
-
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @2,  @6,
-                                @10,  @14,
-                                ]
-                              );
-      
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@0, @1], @[@2, @1],
-                                  @[@0, @3], @[@2, @3],
-                                  ]
-                                );
-      
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @16,
-                           @32,  @48,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @8,  @8,
-                           @8,  @8,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @4,
-                           @4,  @4,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x2345),  @(0x6789),
-                           @(0xABCD),  @(0xEF00),
-                           ]
-                         );
-
-      // pass 3
-      
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @3,  @7,
-                                @11,  @15,
-                                ]
-                              );
-      
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@1, @1], @[@3, @1],
-                                  @[@1, @3], @[@3, @3],
-                                  ]
-                                );
-      
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @16,
-                           @32,  @48,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @12,  @12,
-                           @12,  @12,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @4,
-                           @4,  @4,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x3456),  @(0x789A),
-                           @(0xBCDE),  @(0xF000),
-                           ]
-                         );
-
-      renderFrame.render_pass_expected_symbols = [NSArray arrayWithArray:m_render_pass_expected_symbols];
-      renderFrame.render_pass_expected_coords = [NSArray arrayWithArray:m_render_pass_expected_coords];
-      renderFrame.render_pass_expected_blocki = [NSArray arrayWithArray:m_render_pass_expected_blocki];
-      renderFrame.render_pass_expected_rootBitOffset = [NSArray arrayWithArray:m_render_pass_expected_rootBitOffset];
-      renderFrame.render_pass_expected_currentBitOffset = [NSArray arrayWithArray:m_render_pass_expected_currentBitOffset];
-      renderFrame.render_pass_expected_bitWidth = [NSArray arrayWithArray:m_render_pass_expected_bitWidth];
-      renderFrame.render_pass_expected_bitPattern = [NSArray arrayWithArray:m_render_pass_expected_bitPattern];
+      renderFrame.expected_symbols = renderFrame.inputData;
       
 #endif // CAPTURE_RENDER_PASS_OUTPUT
       
       break;
     }
+      
     case TEST_4x4_INCREASING2: {
       renderFrame.renderWidth = 4;
       renderFrame.renderHeight = 4;
 
       {
         NSArray *values = @[
-                            @0,  @1,  @4,  @0,
-                            @2,  @3,  @5,  @0,
+                            @0,  @1,  @4, @0,
+                            @2,  @3,  @5, @0,
                             @6,  @7, @10, @0,
                             @8,  @9, @11, @0,
                             ];
@@ -306,232 +187,92 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       
 #if defined(CAPTURE_RENDER_PASS_OUTPUT)
       
-      // Render passes
+      // blocki
       
-      NSMutableArray *m_render_pass_expected_symbols = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_coords = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_blocki = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_rootBitOffset = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_currentBitOffset = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_bitWidth = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_bitPattern = [NSMutableArray array];
+      {
+        NSArray *values = @[
+                            @0,   @0,  @1,  @1,
+                            @0,   @0,  @1,  @1,
+                            @2,   @2,  @3,  @3,
+                            @2,   @2,  @3,  @3,
+                            ];
+        
+        renderFrame.expected_blocki = [Util pixelsArrayToData:values];
+      }
       
-      // pass 0
+      // rootBitOffset
       
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @0,  @4,
-                                @6,  @10,
-                                ]
-                              );
+      {
+        NSArray *values = @[
+                            @0,   @0,  @14,  @14,
+                            @0,   @0,  @14,  @14,
+                            @26,  @26, @42,  @42,
+                            @26,  @26, @42,  @42,
+                            ];
+        
+        renderFrame.expected_rootBitOffset = [Util pixelsArrayToData:values];
+      }
       
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@0, @0], @[@2, @0],
-                                  @[@0, @2], @[@2, @2],
-                                  ]
-                                );
+      // currentBitOffset
       
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           ]
-                         );
+      {
+        NSArray *values = @[
+                            @0,   @2,   @0,  @4,
+                            @6,   @10,  @6,  @10,
+                            @0,   @4,   @0,  @4,
+                            @8,   @12,  @6,  @9,
+                            ];
+        
+        renderFrame.expected_currentBitOffset = [Util pixelsArrayToData:values];
+      }
       
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @14,
-                           @26,  @42,
-                           ]
-                         );
+      // bitWidth
       
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @0,  @0,
-                           @0,  @0,
-                           ]
-                         );
+      {
+        NSArray *values = @[
+                            @2,   @4,  @4,  @2,
+                            @4,   @4,  @4,  @2,
+                            @4,   @4,  @4,  @2,
+                            @4,   @4,  @3,  @2,
+                            ];
+        
+        renderFrame.expected_bitWidth = [Util pixelsArrayToData:values];
+      }
       
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @2,  @4,
-                           @4,  @4,
-                           ]
-                         );
+      // bitPattern
       
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x19E2),  @(0x928B),
-                           @(0xBCDE),  @(0xF100),
-                           ]
-                         );
+      {
+        NSArray *values = @[
+                            @(0x19E2),   @(0x6789),  @(0x928B),  @(0x28BC),
+                            @(0x7892),   @(0x8928),  @(0xA2F3),  @(0x2F37),
+                            @(0xBCDE),   @(0xCDEF),  @(0xF100),  @(0x1000),
+                            @(0xDEF1),   @(0xEF10),  @(0x4000),  @(0x0000),
+                            ];
+        
+        renderFrame.expected_bitPattern = [Util pixelsArrayToData:values];
+      }
       
-      // pass 1
+      // coords
       
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @1,  @0,
-                                @7,  @0,
-                                ]
-                              );
+      {
+        NSArray *values = @[
+                            @[@0, @0], @[@1, @0], @[@2, @0], @[@3, @0],
+                            @[@0, @1], @[@1, @1], @[@2, @1], @[@3, @1],
+                            
+                            @[@0, @2], @[@1, @2], @[@2, @2], @[@3, @2],
+                            @[@0, @3], @[@1, @3], @[@2, @3], @[@3, @3],
+                            ];
+        
+        renderFrame.expected_coords = formatXYCoordPixelsAsData(values);
+      }
       
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@1, @0], @[@3, @0],
-                                  @[@1, @2], @[@3, @2],
-                                  ]
-                                );
-      
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @14,
-                           @26,  @42,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @2,  @4,
-                           @4,  @4,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @2,
-                           @4,  @2,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x6789),  @(0x28BC),
-                           @(0xCDEF),  @(0x1000),
-                           ]
-                         );
-      
-      // pass 2
-      
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @2,  @5,
-                                @8,  @11,
-                                ]
-                              );
-      
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@0, @1], @[@2, @1],
-                                  @[@0, @3], @[@2, @3],
-                                  ]
-                                );
-      
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @14,
-                           @26,  @42,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @6,  @6,
-                           @8,  @6,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @4,
-                           @4,  @3,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x7892),  @(0xA2F3),
-                           @(0xDEF1),  @(0x4000),
-                           ]
-                         );
-
-      // pass 3
-      
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @3,  @0,
-                                @9,  @0,
-                                ]
-                              );
-      
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@1, @1], @[@3, @1],
-                                  @[@1, @3], @[@3, @3],
-                                  ]
-                                );
-      
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @14,
-                           @26,  @42,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @10,  @10,
-                           @12,  @9,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @2,
-                           @4,  @2,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x8928),  @(0x2F37),
-                           @(0xEF10),  @(0x0000),
-                           ]
-                         );
-
-      renderFrame.render_pass_expected_symbols = [NSArray arrayWithArray:m_render_pass_expected_symbols];
-      renderFrame.render_pass_expected_coords = [NSArray arrayWithArray:m_render_pass_expected_coords];
-      renderFrame.render_pass_expected_blocki = [NSArray arrayWithArray:m_render_pass_expected_blocki];
-      renderFrame.render_pass_expected_rootBitOffset = [NSArray arrayWithArray:m_render_pass_expected_rootBitOffset];
-      renderFrame.render_pass_expected_currentBitOffset = [NSArray arrayWithArray:m_render_pass_expected_currentBitOffset];
-      renderFrame.render_pass_expected_bitWidth = [NSArray arrayWithArray:m_render_pass_expected_bitWidth];
-      renderFrame.render_pass_expected_bitPattern = [NSArray arrayWithArray:m_render_pass_expected_bitPattern];
+      renderFrame.expected_symbols = renderFrame.inputData;
       
 #endif // CAPTURE_RENDER_PASS_OUTPUT
       
       break;
     }
+
     case TEST_4x8_INCREASING1: {
       renderFrame.renderWidth = 4;
       renderFrame.renderHeight = 8;
@@ -542,7 +283,7 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
                             @2,  @3,  @6,  @7,
                             @8,  @9,  @12, @13,
                             @10, @11, @14, @15,
-
+                            
                             @0,  @1,  @4,  @5,
                             @2,  @3,  @6,  @7,
                             @8,  @8, @10, @10,
@@ -554,329 +295,128 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       
 #if defined(CAPTURE_RENDER_PASS_OUTPUT)
       
-      // Render passes
+      // blocki
       
-      NSMutableArray *m_render_pass_expected_symbols = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_coords = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_blocki = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_rootBitOffset = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_currentBitOffset = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_bitWidth = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_bitPattern = [NSMutableArray array];
+      {
+        NSArray *values = @[
+                            @0,   @0,  @1,  @1,
+                            @0,   @0,  @1,  @1,
+                            @2,   @2,  @3,  @3,
+                            @2,   @2,  @3,  @3,
+                            
+                            @4,   @4,  @5,  @5,
+                            @4,   @4,  @5,  @5,
+                            @6,   @6,  @7,  @7,
+                            @6,   @6,  @7,  @7,
+                            ];
+        
+        renderFrame.expected_blocki = [Util pixelsArrayToData:values];
+      }
       
-      // pass 0
+      // rootBitOffset
       
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @0,  @4,
-                                @8,  @12,
-                                
-                                @0,  @4,
-                                @8,  @10,
-                                ]
-                              );
+      {
+        NSArray *values = @[
+                            @0,   @0,  @16,  @16,
+                            @0,   @0,  @16,  @16,
+                            @32,  @32, @47,  @47,
+                            @32,  @32, @47,  @47,
+                            
+                            @66,  @66,  @82,  @82,
+                            @66,  @66,  @82,  @82,
+                            @98,  @98, @112,  @112,
+                            @98,  @98, @112,  @112,
+                            ];
+        
+        renderFrame.expected_rootBitOffset = [Util pixelsArrayToData:values];
+      }
       
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@0, @0], @[@2, @0],
-                                  @[@0, @2], @[@2, @2],
-                                  
-                                  @[@0, @4], @[@2, @4],
-                                  @[@0, @6], @[@2, @6],
-                                  ]
-                                );
+      // currentBitOffset
       
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           
-                           @4,  @5,
-                           @6,  @7,
-                           ]
-                         );
+      {
+        NSArray *values = @[
+                            @0,   @4,   @0,  @4,
+                            @8,   @12,  @8,  @12,
+                            @0,   @4,   @0,  @5,
+                            @7,   @10, @10,  @15,
+                            
+                            @0,   @4,   @0,  @4,
+                            @8,   @12,  @8,  @12,
+                            @0,   @4,   @0,  @3,
+                            @8,   @11,  @6,  @9,
+                            ];
+        
+        renderFrame.expected_currentBitOffset = [Util pixelsArrayToData:values];
+      }
       
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @16,
-                           @32,  @47,
-                           
-                           @66,  @82,
-                           @98,  @112,
-                           ]
-                         );
+      // bitWidth
       
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @0,  @0,
-                           @0,  @0,
-                           
-                           @0,  @0,
-                           @0,  @0,
-                           ]
-                         );
+      {
+        NSArray *values = @[
+                            @4,   @4,  @4,  @4,
+                            @4,   @4,  @4,  @4,
+                            @4,   @3,  @5,  @5,
+                            @3,   @5,  @5,  @4,
+                            
+                            @4,   @4,  @4,  @4,
+                            @4,   @4,  @4,  @4,
+                            @4,   @4,  @3,  @3,
+                            @3,   @3,  @3,  @3,
+                            ];
+        
+        renderFrame.expected_bitWidth = [Util pixelsArrayToData:values];
+      }
       
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @4,
-                           @4,  @5,
-                           
-                           @4,  @4,
-                           @4,  @3,
-                           ]
-                         );
+      // bitPattern
       
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x4567),  @(0x89AB),
-                           @(0xC079),  @(0xEFBF),
-                           
-                           @(0x4567),  @(0x89AB),
-                           @(0xCC00),  @(0x2490),
-                           ]
-                         );
+      {
+        NSArray *values = @[
+                            @(0x4567),   @(0x5678),  @(0x89AB),  @(0x9ABC),
+                            @(0x6789),   @(0x789A),  @(0xABC0),  @(0xBC07),
+                            @(0xC079),   @(0x079D),  @(0xEFBF),  @(0xF7F5),
+                            @(0x3CEF),   @(0xE77D),  @(0xFEA2),  @(0xD456),
+                            
+                            @(0x4567),   @(0x5678),  @(0x89AB),  @(0x9ABC),
+                            @(0x6789),   @(0x789A),  @(0xABCC),  @(0xBCC0),
+                            @(0xCC00),   @(0xC009),  @(0x2490),  @(0x2480),
+                            @(0x0092),   @(0x0492),  @(0x2400),  @(0x2000),
+                            ];
+        
+        renderFrame.expected_bitPattern = [Util pixelsArrayToData:values];
+      }
       
-      // pass 1
-
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @1,  @5,
-                                @9,  @13,
-                                
-                                @1,  @5,
-                                @8,  @10,
-                                ]
-                              );
+      // coords
       
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@1, @0], @[@3, @0],
-                                  @[@1, @2], @[@3, @2],
-                                  
-                                  @[@1, @4], @[@3, @4],
-                                  @[@1, @6], @[@3, @6],
-                                  ]
-                                );
+      {
+        NSArray *values = @[
+                            @[@0, @0], @[@1, @0], @[@2, @0], @[@3, @0],
+                            @[@0, @1], @[@1, @1], @[@2, @1], @[@3, @1],
+                            
+                            @[@0, @2], @[@1, @2], @[@2, @2], @[@3, @2],
+                            @[@0, @3], @[@1, @3], @[@2, @3], @[@3, @3],
+                            
+                            @[@0, @4], @[@1, @4], @[@2, @4], @[@3, @4],
+                            @[@0, @5], @[@1, @5], @[@2, @5], @[@3, @5],
+                            
+                            @[@0, @6], @[@1, @6], @[@2, @6], @[@3, @6],
+                            @[@0, @7], @[@1, @7], @[@2, @7], @[@3, @7],
+                            ];
+        
+        renderFrame.expected_coords = formatXYCoordPixelsAsData(values);
+      }
       
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           
-                           @4,  @5,
-                           @6,  @7,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @16,
-                           @32,  @47,
-                           
-                           @66,  @82,
-                           @98,  @112,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @4,  @4,
-                           @4,  @5,
-                           
-                           @4,  @4,
-                           @4,  @3,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @4,
-                           @3,  @5,
-                           
-                           @4,  @4,
-                           @4,  @3,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x5678),  @(0x9ABC),
-                           @(0x079D),  @(0xF7F5),
-                           
-                           @(0x5678),  @(0x9ABC),
-                           @(0xC009),  @(0x2480),
-                           ]
-                         );
-      
-      // pass 2
-      
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @2,  @6,
-                                @10, @14,
-                                
-                                @2,  @6,
-                                @9,  @10,
-                                ]
-                              );
-      
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@0, @1], @[@2, @1],
-                                  @[@0, @3], @[@2, @3],
-                                  
-                                  @[@0, @5], @[@2, @5],
-                                  @[@0, @7], @[@2, @7],
-                                  ]
-                                );
-      
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           
-                           @4,  @5,
-                           @6,  @7,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @16,
-                           @32,  @47,
-                           
-                           @66,  @82,
-                           @98,  @112,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @8,  @8,
-                           @7,  @10,
-                           
-                           @8,  @8,
-                           @8,  @6,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @4,
-                           @3,  @5,
-                           
-                           @4,  @4,
-                           @3,  @3,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x6789),  @(0xABC0),
-                           @(0x3CEF),  @(0xFEA2),
-                           
-                           @(0x6789),  @(0xABCC),
-                           @(0x0092),  @(0x2400),
-                           ]
-                         );
-      
-      // pass 3
-      
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @3,  @7,
-                                @11, @15,
-                                
-                                @3,  @7,
-                                @9,  @10,
-                                ]
-                              );
-      
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@1, @1], @[@3, @1],
-                                  @[@1, @3], @[@3, @3],
-                                  
-                                  @[@1, @5], @[@3, @5],
-                                  @[@1, @7], @[@3, @7],
-                                  ]
-                                );
-
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           
-                           @4,  @5,
-                           @6,  @7,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @16,
-                           @32,  @47,
-                           
-                           @66,  @82,
-                           @98,  @112,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @12,  @12,
-                           @10,  @15,
-                           
-                           @12,  @12,
-                           @11,  @9,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @4,
-                           @5,  @4,
-                           
-                           @4,  @4,
-                           @3,  @3,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x789A),  @(0xBC07),
-                           @(0xE77D),  @(0xD456),
-                           
-                           @(0x789A),  @(0xBCC0),
-                           @(0x0492),  @(0x2000),
-                           ]
-                         );
-      
-      renderFrame.render_pass_expected_symbols = [NSArray arrayWithArray:m_render_pass_expected_symbols];
-      renderFrame.render_pass_expected_coords = [NSArray arrayWithArray:m_render_pass_expected_coords];
-      renderFrame.render_pass_expected_blocki = [NSArray arrayWithArray:m_render_pass_expected_blocki];
-      renderFrame.render_pass_expected_rootBitOffset = [NSArray arrayWithArray:m_render_pass_expected_rootBitOffset];
-      renderFrame.render_pass_expected_currentBitOffset = [NSArray arrayWithArray:m_render_pass_expected_currentBitOffset];
-      renderFrame.render_pass_expected_bitWidth = [NSArray arrayWithArray:m_render_pass_expected_bitWidth];
-      renderFrame.render_pass_expected_bitPattern = [NSArray arrayWithArray:m_render_pass_expected_bitPattern];
+      renderFrame.expected_symbols = renderFrame.inputData;
       
 #endif // CAPTURE_RENDER_PASS_OUTPUT
       
       break;
     }
-      
+
     case TEST_2x8_INCREASING1: {
       renderFrame.renderWidth = 2;
       renderFrame.renderHeight = 8;
       
       {
-        // a total of 4 blocks where input is in terms
-        // of 2x2 blocks and the rewrite texture has
-        // a width of 2. This is 16 values much like
-        // a 4x4 texture would look except that the
-        // rewrite coords need to account for the
-        // output texture width for easy cropping.
-        
         NSArray *values = @[
                             @0,  @1,
                             @2,  @3,
@@ -896,225 +436,221 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       
 #if defined(CAPTURE_RENDER_PASS_OUTPUT)
       
-      NSMutableArray *m_render_pass_expected_symbols = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_coords = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_blocki = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_rootBitOffset = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_currentBitOffset = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_bitWidth = [NSMutableArray array];
-      NSMutableArray *m_render_pass_expected_bitPattern = [NSMutableArray array];
+      // blocki
       
-      // pass 0
+      {
+        NSArray *values = @[
+                            @0,   @0,
+                            @0,   @0,
+                            @1,   @1,
+                            @1,   @1,
+                            
+                            @2,   @2,
+                            @2,   @2,
+                            @3,   @3,
+                            @3,   @3,
+                            ];
+        
+        renderFrame.expected_blocki = [Util pixelsArrayToData:values];
+      }
       
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @0,  @4,
-                                @8,  @12,
-                                ]
-                              );
+      // rootBitOffset
       
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@0, @0], @[@0, @2],
-                                  @[@0, @4], @[@0, @6],
-                                  ]
-                                );
+      {
+        NSArray *values = @[
+                            @0,   @0,
+                            @0,   @0,
+                            @16,  @16,
+                            @16,  @16,
+                            
+                            @32,   @32,
+                            @32,   @32,
+                            @48,   @48,
+                            @48,   @48,
+                            ];
+        
+        renderFrame.expected_rootBitOffset = [Util pixelsArrayToData:values];
+      }
       
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           ]
-                         );
+      // currentBitOffset
       
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @16,
-                           @32,  @48,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @0,  @0,
-                           @0,  @0,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @4,
-                           @4,  @4,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x0123),  @(0x4567),
-                           @(0x89AB),  @(0xCDEF),
-                           ]
-                         );
-      
-      // pass 1
-      
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @1,  @5,
-                                @9,  @13,
-                                ]
-                              );
-      
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@1, @0], @[@1, @2],
-                                  @[@1, @4], @[@1, @6],
-                                  ]
-                                );
-      
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @16,
-                           @32,  @48,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @4,  @4,
-                           @4,  @4,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @4,
-                           @4,  @4,
-                           ]
-                         );
-      
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x1234),  @(0x5678),
-                           @(0x9ABC),  @(0xDEF0),
-                           ]
-                         );
-      
-      // pass 2
-      
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @2,  @6,
-                                @10,  @14,
-                                ]
-                              );
-      
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@0, @1], @[@0, @3],
-                                  @[@0, @5], @[@0, @7],
-                                  ]
-                                );
+      {
+        NSArray *values = @[
+                            @0,   @4,
+                            @8,   @12,
+                            @0,   @4,
+                            @8,   @12,
 
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           ]
-                         );
+                            @0,   @4,
+                            @8,   @12,
+                            @0,   @4,
+                            @8,   @12,
+                            ];
+        
+        renderFrame.expected_currentBitOffset = [Util pixelsArrayToData:values];
+      }
       
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @16,
-                           @32,  @48,
-                           ]
-                         );
+      // bitWidth
       
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @8,  @8,
-                           @8,  @8,
-                           ]
-                         );
+      {
+        NSArray *values = @[
+                            @4,   @4,
+                            @4,   @4,
+                            @4,   @4,
+                            @4,   @4,
+
+                            @4,   @4,
+                            @4,   @4,
+                            @4,   @4,
+                            @4,   @4,
+                            ];
+        
+        renderFrame.expected_bitWidth = [Util pixelsArrayToData:values];
+      }
       
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @4,
-                           @4,  @4,
-                           ]
-                         );
+      // bitPattern
       
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x2345),  @(0x6789),
-                           @(0xABCD),  @(0xEF00),
-                           ]
-                         );
+      {
+        NSArray *values = @[
+                            @(0x0123),   @(0x1234),
+                            @(0x2345),   @(0x3456),
+                            @(0x4567),   @(0x5678),
+                            @(0x6789),   @(0x789A),
+                            
+                            @(0x89AB),   @(0x9ABC),
+                            @(0xABCD),   @(0xBCDE),
+                            @(0xCDEF),   @(0xDEF0),
+                            @(0xEF00),   @(0xF000),
+                            ];
+        
+        renderFrame.expected_bitPattern = [Util pixelsArrayToData:values];
+      }
       
-      // pass 3
+      // coords
       
-      appendSymbolBytesAsData(m_render_pass_expected_symbols,
-                              @[
-                                @3,  @7,
-                                @11,  @15,
-                                ]
-                              );
+      {
+        NSArray *values = @[
+                            @[@0, @0], @[@1, @0],
+                            @[@0, @1], @[@1, @1],
+                            
+                            @[@0, @2], @[@1, @2],
+                            @[@0, @3], @[@1, @3],
+                            
+                            @[@0, @4], @[@1, @4],
+                            @[@0, @5], @[@1, @5],
+                            
+                            @[@0, @6], @[@1, @6],
+                            @[@0, @7], @[@1, @7],
+                            ];
+        
+        renderFrame.expected_coords = formatXYCoordPixelsAsData(values);
+      }
       
-      appendXYCoordPixelsAsData(m_render_pass_expected_coords,
-                                @[
-                                  @[@1, @1], @[@1, @3],
-                                  @[@1, @5], @[@1, @7],
-                                  ]
-                                );
+      renderFrame.expected_symbols = renderFrame.inputData;
       
-      appendPixelsAsData(m_render_pass_expected_blocki,
-                         @[
-                           @0,  @1,
-                           @2,  @3,
-                           ]
-                         );
+#endif // CAPTURE_RENDER_PASS_OUTPUT
       
-      appendPixelsAsData(m_render_pass_expected_rootBitOffset,
-                         @[
-                           @0,  @16,
-                           @32,  @48,
-                           ]
-                         );
+      break;
+    }
       
-      appendPixelsAsData(m_render_pass_expected_currentBitOffset,
-                         @[
-                           @12,  @12,
-                           @12,  @12,
-                           ]
-                         );
+    case TEST_6x4_NOT_SQUARE: {
+      renderFrame.renderWidth = 6;
+      renderFrame.renderHeight = 4;
       
-      appendPixelsAsData(m_render_pass_expected_bitWidth,
-                         @[
-                           @4,  @4,
-                           @4,  @4,
-                           ]
-                         );
+      {
+        NSArray *values = @[
+                            @0,     @1,     @2,     @3,     @4,     @5,
+                            @3,     @3,     @1,     @1,     @2,     @2,
+                            
+                            @5,     @4,     @3,     @2,     @1,     @0,
+                            @2,     @2,     @1,     @1,     @3,     @3,
+                            ];
+        
+        renderFrame.inputData = [Util bytesArrayToData:values];
+      }
       
-      appendPixelsAsData(m_render_pass_expected_bitPattern,
-                         @[
-                           @(0x3456),  @(0x789A),
-                           @(0xBCDE),  @(0xF000),
-                           ]
-                         );
+#if defined(CAPTURE_RENDER_PASS_OUTPUT)
       
-      renderFrame.render_pass_expected_symbols = [NSArray arrayWithArray:m_render_pass_expected_symbols];
-      renderFrame.render_pass_expected_coords = [NSArray arrayWithArray:m_render_pass_expected_coords];
-      renderFrame.render_pass_expected_blocki = [NSArray arrayWithArray:m_render_pass_expected_blocki];
-      renderFrame.render_pass_expected_rootBitOffset = [NSArray arrayWithArray:m_render_pass_expected_rootBitOffset];
-      renderFrame.render_pass_expected_currentBitOffset = [NSArray arrayWithArray:m_render_pass_expected_currentBitOffset];
-      renderFrame.render_pass_expected_bitWidth = [NSArray arrayWithArray:m_render_pass_expected_bitWidth];
-      renderFrame.render_pass_expected_bitPattern = [NSArray arrayWithArray:m_render_pass_expected_bitPattern];
+      // blocki
+      
+      {
+        NSArray *values = @[
+                            @0,   @0,  @1,  @1,  @2,   @2,
+                            @0,   @0,  @1,  @1,  @2,   @2,
+                            @3,   @3,  @4,  @4,  @5,   @5,
+                            @3,   @3,  @4,  @4,  @5,   @5,
+                            ];
+        
+        renderFrame.expected_blocki = [Util pixelsArrayToData:values];
+      }
+      
+      // rootBitOffset
+      
+      {
+        NSArray *values = @[
+                            @0,   @0,  @10,  @10,  @18,  @18,
+                            @0,   @0,  @10,  @10,  @18,  @18,
+                            @29,  @29, @40,  @40,  @48,  @48,
+                            @29,  @29, @40,  @40,  @48,  @48,
+                            ];
+        
+        renderFrame.expected_rootBitOffset = [Util pixelsArrayToData:values];
+      }
+      
+      // currentBitOffset
+      
+      {
+        NSArray *values = @[
+                            @0,   @4,  @0,  @2,  @0,  @4,
+                            @6,   @8,  @4,  @6,  @7,  @9,
+                            @0,   @3,  @0,  @2,  @0,  @2,
+                            @7,   @9,  @4,  @6,  @6,  @8,
+                            ];
+        
+        renderFrame.expected_currentBitOffset = [Util pixelsArrayToData:values];
+      }
+      
+      // bitWidth
+      
+      {
+        NSArray *values = @[
+                            @4,   @2,  @2,  @2,  @4,  @3,
+                            @2,   @2,  @2,  @2,  @2,  @2,
+                            @3,   @4,  @2,  @2,  @2,  @4,
+                            @2,   @2,  @2,  @2,  @2,  @2,
+                            ];
+        
+        renderFrame.expected_bitWidth = [Util pixelsArrayToData:values];
+      }
+      
+      // bitPattern
+      
+      {
+        NSArray *values = @[
+                            @(0xE298),   @(0x2983),  @(0x60FC),  @(0x83F2),   @(0xFCBB),  @(0xCBBD),
+                            @(0xA60F),   @(0x983F),  @(0x0FCB),  @(0x3F2E),   @(0x5DEB),  @(0x77AC),
+                            @(0xDEB2),   @(0xF590),  @(0x903A),  @(0x40EA),   @(0x3A80),  @(0xEA00),
+                            @(0x5903),   @(0x640E),  @(0x03A8),  @(0x0EA0),   @(0xA000),  @(0x8000),
+                            ];
+        
+        renderFrame.expected_bitPattern = [Util pixelsArrayToData:values];
+      }
+      
+      // coords
+      
+      {
+        NSArray *values = @[
+                            @[@0, @0], @[@1, @0], @[@2, @0], @[@3, @0], @[@4, @0], @[@5, @0],
+                            @[@0, @1], @[@1, @1], @[@2, @1], @[@3, @1], @[@4, @1], @[@5, @1],
+                            
+                            @[@0, @2], @[@1, @2], @[@2, @2], @[@3, @2], @[@4, @2], @[@5, @2],
+                            @[@0, @3], @[@1, @3], @[@2, @3], @[@3, @3], @[@4, @3], @[@5, @3],
+                            ];
+        
+        renderFrame.expected_coords = formatXYCoordPixelsAsData(values);
+      }
+      
+      renderFrame.expected_symbols = renderFrame.inputData;
       
 #endif // CAPTURE_RENDER_PASS_OUTPUT
       
@@ -1122,8 +658,12 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
     }
       
     case TEST_LARGE_RANDOM: {
-      renderFrame.renderWidth = 256;
-      renderFrame.renderHeight = 256;
+// Too large, causes runtime error
+//      renderFrame.renderWidth = 1024;
+//      renderFrame.renderHeight = 1024;
+
+      renderFrame.renderWidth = 512;
+      renderFrame.renderHeight = 512;
       
       sranddev();
       
@@ -1149,12 +689,12 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
   
   assert(renderFrame.inputData);
   
-  //renderFrame.capture = TRUE;
-  renderFrame.capture = FALSE;
+  renderFrame.capture = TRUE;
+  //renderFrame.capture = FALSE;
   
 # if defined(DEBUG)
   if (renderFrame.capture) {
-    assert(renderFrame.render_pass_expected_symbols != nil);
+    assert(renderFrame.expected_symbols != nil);
   }
 # endif // DEBUG
   

@@ -1,10 +1,13 @@
 #import <Foundation/Foundation.h>
 
+@import MetalKit;
+
 typedef enum {
   TEST_4x4_INCREASING1 = 0,
   TEST_4x4_INCREASING2,
   TEST_4x8_INCREASING1,
   TEST_2x8_INCREASING1,
+  TEST_6x4_NOT_SQUARE,
   TEST_LARGE_RANDOM
 } HuffRenderFrameConfig;
 
@@ -36,24 +39,24 @@ typedef enum {
 // If TRUE and DEBUG is enabled then output of the render frame will
 // be captured and it can then be compared to the expected output.
 
-@property (nonatomic, copy) NSArray *render_pass_expected_symbols;
-@property (nonatomic, copy) NSArray *render_pass_expected_coords;
-@property (nonatomic, copy) NSArray *render_pass_expected_blocki;
-@property (nonatomic, copy) NSArray *render_pass_expected_rootBitOffset;
-@property (nonatomic, copy) NSArray *render_pass_expected_currentBitOffset;
-@property (nonatomic, copy) NSArray *render_pass_expected_bitWidth;
-@property (nonatomic, copy) NSArray *render_pass_expected_bitPattern;
-
 #if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
+// Debug capture textures, these are same dimensions as _render_pass
 
-@property (nonatomic, copy) NSArray *render_pass_saved_debugPixelBlockiTexture;
-@property (nonatomic, copy) NSArray *render_pass_saved_debugRootBitOffsetTexture;
-@property (nonatomic, copy) NSArray *render_pass_saved_debugCurrentBitOffsetTexture;
-@property (nonatomic, copy) NSArray *render_pass_saved_debugBitWidthTexture;
-@property (nonatomic, copy) NSArray *render_pass_saved_debugBitPatternTexture;
+@property (nonatomic, retain) id<MTLTexture> debugPixelBlockiTexture;
+@property (nonatomic, retain) id<MTLTexture> debugRootBitOffsetTexture;
+@property (nonatomic, retain) id<MTLTexture> debugCurrentBitOffsetTexture;
+@property (nonatomic, retain) id<MTLTexture> debugBitWidthTexture;
+@property (nonatomic, retain) id<MTLTexture> debugBitPatternTexture;
+@property (nonatomic, retain) id<MTLTexture> debugSymbolsTexture;
+@property (nonatomic, retain) id<MTLTexture> debugCoordsTexture;
 
-@property (nonatomic, copy) NSArray *render_pass_saved_symbolsTexture;
-@property (nonatomic, copy) NSArray *render_pass_saved_coordsTexture;
+@property (nonatomic, copy) NSData *expected_blocki;
+@property (nonatomic, copy) NSData *expected_rootBitOffset;
+@property (nonatomic, copy) NSData *expected_currentBitOffset;
+@property (nonatomic, copy) NSData *expected_bitWidth;
+@property (nonatomic, copy) NSData *expected_bitPattern;
+@property (nonatomic, copy) NSData *expected_coords;
+@property (nonatomic, copy) NSData *expected_symbols;
 
 #endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
 

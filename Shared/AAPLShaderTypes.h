@@ -31,11 +31,9 @@ typedef enum AAPLComputeInputIndex
 
 typedef enum AAPLComputeBufferIndex
 {
-  AAPLComputeBufferIter = 0,
-  AAPLComputeBlockStartBitOffsets = 1,
-  AAPLComputeHuffBuff = 2,
-  AAPLComputeHuffSymbolTable = 3,
-  AAPLComputeRenderStepConst = 4,
+  AAPLComputeBlockStartBitOffsets = 0,
+  AAPLComputeHuffBuff = 1,
+  AAPLComputeHuffSymbolTable = 2
 } AAPLComputeBufferIndex;
 
 // Texture index values shared between shader and C code to ensure Metal shader buffer inputs match
@@ -69,10 +67,24 @@ typedef struct {
   uint8_t _dummy1;
 } RenderStepConst;
 
+typedef enum AAPLHuffmanTextureIndex
+{
+  AAPLTexturePaddedOut = 0,
+  AAPLTextureBlocki = 1,
+  AAPLTextureRootBitOffset = 2,
+  AAPLTextureCurrentBitOffset = 3,
+  AAPLTextureBitWidth = 4,
+  AAPLTextureBitPattern = 5,
+  AAPLTextureSymbols = 6,
+  AAPLTextureCoords = 7,
+} AAPLHuffmanTextureIndex;
+
 // This define is enabled in DEBUG mode only, it enables compilation of the
 // huffman decode shader with additional output textures that will capture
 // the matched symbol and bit width.
 
 #define HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
+
+#define BLOCK_DIM 2
 
 #endif /* ShaderTypes_h */
