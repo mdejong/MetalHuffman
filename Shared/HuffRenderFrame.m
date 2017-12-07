@@ -82,7 +82,7 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
         renderFrame.inputData = [Util bytesArrayToData:values];
       }
 
-#if defined(CAPTURE_RENDER_PASS_OUTPUT)
+#if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
       
       // blocki
       
@@ -165,7 +165,7 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       
       renderFrame.expected_symbols = renderFrame.inputData;
       
-#endif // CAPTURE_RENDER_PASS_OUTPUT
+#endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
       
       break;
     }
@@ -185,7 +185,7 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
         renderFrame.inputData = [Util bytesArrayToData:values];
       }
       
-#if defined(CAPTURE_RENDER_PASS_OUTPUT)
+#if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
       
       // blocki
       
@@ -268,7 +268,7 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       
       renderFrame.expected_symbols = renderFrame.inputData;
       
-#endif // CAPTURE_RENDER_PASS_OUTPUT
+#endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
       
       break;
     }
@@ -293,7 +293,7 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
         renderFrame.inputData = [Util bytesArrayToData:values];
       }
       
-#if defined(CAPTURE_RENDER_PASS_OUTPUT)
+#if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
       
       // blocki
       
@@ -407,7 +407,7 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       
       renderFrame.expected_symbols = renderFrame.inputData;
       
-#endif // CAPTURE_RENDER_PASS_OUTPUT
+#endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
       
       break;
     }
@@ -434,7 +434,7 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
         renderFrame.inputData = [Util bytesArrayToData:values];
       }
       
-#if defined(CAPTURE_RENDER_PASS_OUTPUT)
+#if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
       
       // blocki
       
@@ -548,7 +548,7 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       
       renderFrame.expected_symbols = renderFrame.inputData;
       
-#endif // CAPTURE_RENDER_PASS_OUTPUT
+#endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
       
       break;
     }
@@ -569,7 +569,7 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
         renderFrame.inputData = [Util bytesArrayToData:values];
       }
       
-#if defined(CAPTURE_RENDER_PASS_OUTPUT)
+#if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
       
       // blocki
       
@@ -652,7 +652,7 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       
       renderFrame.expected_symbols = renderFrame.inputData;
       
-#endif // CAPTURE_RENDER_PASS_OUTPUT
+#endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
       
       break;
     }

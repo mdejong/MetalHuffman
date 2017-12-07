@@ -256,7 +256,9 @@ const static unsigned int blockDim = BLOCK_DIM;
   MTLSize mSize;
   MTLSize mCount;
   
-  mSize = MTLSizeMake(blockDim, blockDim, 1);
+  //mSize = MTLSizeMake(blockDim, blockDim, 1);
+  // An input block of (N * N) blocks is represented by a single render pixel.
+  mSize = MTLSizeMake(1, 1, 1);
 
   // Calculate the number of rows and columns of thread groups given the width of our input image.
   //   Ensure we cover the entire image (or more) so we process every pixel.

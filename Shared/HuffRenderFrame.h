@@ -11,13 +11,6 @@ typedef enum {
   TEST_LARGE_RANDOM
 } HuffRenderFrameConfig;
 
-// Define this symbol to enable functionality that captures
-// output of each render pass and compares to expected values
-
-#if defined(DEBUG)
-# define CAPTURE_RENDER_PASS_OUTPUT
-#endif // DEBUG
-
 // Header shared between C code here, which executes Metal API commands, and .metal files, which
 //   uses these types as inpute to the shaders
 #import "AAPLShaderTypes.h"
@@ -33,8 +26,6 @@ typedef enum {
 @property (nonatomic, copy) NSData *inputData;
 
 @property (nonatomic, assign) BOOL capture;
-
-#if defined(DEBUG)
 
 // If TRUE and DEBUG is enabled then output of the render frame will
 // be captured and it can then be compared to the expected output.
@@ -59,8 +50,6 @@ typedef enum {
 @property (nonatomic, copy) NSData *expected_symbols;
 
 #endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
-
-#endif // DEBUG
 
 // Get a specific configuration given a HuffRenderFrameConfig identifier
 
