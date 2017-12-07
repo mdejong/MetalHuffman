@@ -285,7 +285,7 @@ const static unsigned int blockDim = BLOCK_DIM;
     self = [super init];
     if(self)
     {
-      isCaptureRenderedTextureEnabled = 1;
+      isCaptureRenderedTextureEnabled = 0;
       
       mtkView.depthStencilPixelFormat = MTLPixelFormatInvalid;
       
@@ -315,9 +315,9 @@ const static unsigned int blockDim = BLOCK_DIM;
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING2;
 //      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
-      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
+//      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_6x4_NOT_SQUARE;
-//      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
+      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
@@ -1477,9 +1477,9 @@ const static unsigned int blockDim = BLOCK_DIM;
       
       // Dump output words as BGRA
       
-      fprintf(stdout, "_render_block_padded_texture\n");
-      
-      if ((1)) {
+      if ((0)) {
+        fprintf(stdout, "_render_block_padded_texture\n");
+        
         // Dump 24 bit values as int
         
         for ( int row = 0; row < height; row++ ) {

@@ -659,11 +659,11 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       
     case TEST_LARGE_RANDOM: {
 // Too large, causes runtime error
-//      renderFrame.renderWidth = 1024;
-//      renderFrame.renderHeight = 1024;
+      renderFrame.renderWidth = 1024;
+      renderFrame.renderHeight = 1024;
 
-      renderFrame.renderWidth = 512;
-      renderFrame.renderHeight = 512;
+//      renderFrame.renderWidth = 512;
+//      renderFrame.renderHeight = 512;
       
       sranddev();
       
@@ -694,7 +694,9 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
   
 # if defined(DEBUG)
   if (renderFrame.capture) {
+# if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
     assert(renderFrame.expected_symbols != nil);
+# endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
   }
 # endif // DEBUG
   
