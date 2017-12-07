@@ -319,7 +319,7 @@ const static unsigned int blockDim = BLOCK_DIM;
     self = [super init];
     if(self)
     {
-      isCaptureRenderedTextureEnabled = 1;
+      isCaptureRenderedTextureEnabled = 0;
       
       mtkView.depthStencilPixelFormat = MTLPixelFormatInvalid;
       
@@ -348,12 +348,12 @@ const static unsigned int blockDim = BLOCK_DIM;
       
       // Query size and byte data for input frame that will be rendered
       
-      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING1;
+//      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING2;
 //      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_6x4_NOT_SQUARE;
-//      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
+      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
