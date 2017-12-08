@@ -341,7 +341,7 @@ const static unsigned int blockDim = BLOCK_DIM;
     self = [super init];
     if(self)
     {
-      isCaptureRenderedTextureEnabled = 1;
+      isCaptureRenderedTextureEnabled = 0;
       
       mtkView.depthStencilPixelFormat = MTLPixelFormatInvalid;
       
@@ -372,11 +372,11 @@ const static unsigned int blockDim = BLOCK_DIM;
       
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING2;
-      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
+//      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_6x4_NOT_SQUARE;
 //      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
-//      HuffRenderFrameConfig hcfg = TEST_IMAGE1;
+      HuffRenderFrameConfig hcfg = TEST_IMAGE1;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
@@ -637,7 +637,7 @@ const static unsigned int blockDim = BLOCK_DIM;
 
       // Deal with the case where there are not enough total blocks to zero pad
       
-      if ((1)) {
+      if ((0)) {
 //        for (int i = 0; i < outBlockOrderSymbolsNumBytes; i++) {
 //          printf("outBlockOrderSymbolsPtr[%5i] = %d\n", i, outBlockOrderSymbolsPtr[i]);
 //        }
@@ -700,7 +700,7 @@ const static unsigned int blockDim = BLOCK_DIM;
       }
 #endif // IMPL_DELTAS_BEFORE_HUFF_ENCODING
       
-      if ((1)) {
+      if ((0)) {
         //        for (int i = 0; i < outBlockOrderSymbolsNumBytes; i++) {
         //          printf("outBlockOrderSymbolsPtr[%5i] = %d\n", i, outBlockOrderSymbolsPtr[i]);
         //        }
@@ -1048,7 +1048,7 @@ const static unsigned int blockDim = BLOCK_DIM;
 
     // Print output of render pass in stages
     
-    const int assertOnValueDiff = 1;
+    const int assertOnValueDiff = 0;
     
     // Debug stages from each render cycle
     
@@ -1555,7 +1555,7 @@ const static unsigned int blockDim = BLOCK_DIM;
       
       // Dump output words as bytes
       
-      if ((0)) {
+      if ((1)) {
         fprintf(stdout, "_render_block_padded_texture\n");
         
         // Dump 24 bit values as int

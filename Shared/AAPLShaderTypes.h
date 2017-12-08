@@ -89,10 +89,10 @@ typedef enum AAPLHuffmanTextureIndex
 // huffman decode shader with additional output textures that will capture
 // the matched symbol and bit width.
 
-#define HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
+//#define HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
 
-//#define IMPL_DELTAS_BEFORE_HUFF_ENCODING
+#define IMPL_DELTAS_BEFORE_HUFF_ENCODING
 
-#define BLOCK_DIM 2
+#define BLOCK_DIM 8
 
 #endif /* ShaderTypes_h */
