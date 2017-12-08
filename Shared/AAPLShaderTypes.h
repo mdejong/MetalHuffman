@@ -67,6 +67,12 @@ typedef struct {
   uint8_t _dummy1;
 } RenderStepConst;
 
+typedef struct
+{
+  uint16_t width;
+  uint16_t height;
+} RenderTargetDimensionsUniform;
+
 typedef enum AAPLHuffmanTextureIndex
 {
   AAPLTexturePaddedOut = 0,

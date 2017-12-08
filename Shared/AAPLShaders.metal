@@ -96,6 +96,25 @@ samplingPassThroughShader(RasterizerData in [[stage_in]],
   
 }
 
+// Fragment function that crops from the input texture while rendering
+// pixels to the output texture.
+
+fragment half4
+samplingCropShader(RasterizerData in [[stage_in]],
+                   texture2d<ushort, access::read> inTexture [[ texture(0) ]],
+                   const device RenderTargetDimensionsUniform &rtd [[ buffer(0) ]])
+{
+  float2 textureCoordinate = in.textureCoordinate;
+  float2 dims = float2(rtd.width, rtd.height);
+  float2 textureOffsets = textureCoordinate * dims;
+  float2 textureOffsetsR = round(textureOffsets);
+  ushort2 textureOffsetsI = ushort2(textureOffsetsR.x, textureOffsetsR.y);
+  ushort inByte = inTexture.read(textureOffsetsI).x;
+  half value = inByte / 255.0h;
+  half4 outGrayscale = half4(value, value, value, 1.0);
+  return outGrayscale;
+}
+
 // Compute kernel that crops an input width and height while copying data to an output
 // texture. In addition, this implementation will convert byte data to grayscale pixels.
 

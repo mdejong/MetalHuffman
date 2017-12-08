@@ -40,8 +40,6 @@ const static unsigned int blockDim = BLOCK_DIM;
 
   // Our compute pipeline composed of our kernal defined in the .metal shader file
   id <MTLComputePipelineState> _computePipelineState;
-
-  id <MTLComputePipelineState> _cropCopyComputePipelineState;
   
   // Render size at original width and height in terms of blocks
   MTLSize _threadgroupSize;
@@ -55,7 +53,7 @@ const static unsigned int blockDim = BLOCK_DIM;
     id<MTLRenderPipelineState> _renderToTexturePipelineState;
   
     // Our render pipeline composed of our vertex and fragment shaders in the .metal shader file
-    id<MTLRenderPipelineState> _pipelineState;
+    id<MTLRenderPipelineState> _renderFromTexturePipelineState;
 
     // The command Queue from which we'll obtain command buffers
     id<MTLCommandQueue> _commandQueue;
@@ -70,6 +68,9 @@ const static unsigned int blockDim = BLOCK_DIM;
   
     // The Metal buffer in which we store our vertex data
     id<MTLBuffer> _vertices;
+
+    // The Metal buffer that will hold render dimensions
+    id<MTLBuffer> _renderTargetDimensions;
   
   // The Metal buffer stores the number of bits into the
   // huffman codes buffer where the symbol at a given
@@ -426,7 +427,10 @@ const static unsigned int blockDim = BLOCK_DIM;
         _vertices = [_device newBufferWithBytes:quadVertices
                                          length:sizeof(quadVertices)
                                         options:MTLResourceStorageModeShared];
-      
+
+        _renderTargetDimensions = [_device newBufferWithLength:sizeof(RenderTargetDimensionsUniform)
+                                                       options:MTLResourceStorageModeShared];
+
       // Calculate the number of vertices by dividing the byte length by the size of each vertex
       _numVertices = sizeof(quadVertices) / sizeof(AAPLVertex);
       
@@ -455,25 +459,8 @@ const static unsigned int blockDim = BLOCK_DIM;
         return nil;
       }
       
-      // Compute pipeline for crop copy and grayscale conversion
-
-      id <MTLFunction> cropCopyKernelFunction = [defaultLibrary newFunctionWithName:@"crop_copy_and_grayscale"];
-      
-      _cropCopyComputePipelineState = [_device newComputePipelineStateWithFunction:cropCopyKernelFunction
-                                                                     error:&error];
-      
-      if(!_cropCopyComputePipelineState)
-      {
-        // Compute pipeline State creation could fail if kernelFunction failed to load from the
-        //   library.  If the Metal API validation is enabled, we automatically be given more
-        //   information about what went wrong.  (Metal API validation is enabled by default
-        //   when a debug build is run from Xcode)
-        NSLog(@"Failed to create compute pipeline state, error %@", error);
-        return nil;
-      }
-      
-      // The kernel's render size is in terms of blocks where 1 pixel corresponds
-      // to each input block of dimensions (blockDim*blockDim).
+      // The kernel's render size is in terms of blocks where each pixel in each
+      // block is represented.
 
       [self.class calculateThreadgroup:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) blockDim:blockDim sizePtr:&_threadgroupSize countPtr:&_threadgroupCount];
       
@@ -511,9 +498,9 @@ const static unsigned int blockDim = BLOCK_DIM;
         pipelineStateDescriptor.colorAttachments[0].pixelFormat = mtkView.colorPixelFormat;
         //pipelineStateDescriptor.stencilAttachmentPixelFormat =  mtkView.depthStencilPixelFormat; // MTLPixelFormatStencil8
         
-        _pipelineState = [_device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
+        _renderFromTexturePipelineState = [_device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
                                                                  error:&error];
-        if (!_pipelineState)
+        if (!_renderFromTexturePipelineState)
         {
           // Pipeline State creation could fail if we haven't properly set up our pipeline descriptor.
           //  If the Metal API validation is enabled, we can find out more information about what
@@ -528,7 +515,8 @@ const static unsigned int blockDim = BLOCK_DIM;
         id <MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
         
         // Load the fragment function from the library
-        id <MTLFunction> fragmentFunction = [defaultLibrary newFunctionWithName:@"fragmentFillShader"];
+        id <MTLFunction> fragmentFunction = [defaultLibrary newFunctionWithName:@"samplingCropShader"];
+        assert(fragmentFunction);
         
         // Set up a descriptor for creating a pipeline state object
         MTLRenderPipelineDescriptor *pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
@@ -818,6 +806,10 @@ const static unsigned int blockDim = BLOCK_DIM;
     //   values to our vertex shader when we draw
     _viewportSize.x = size.width;
     _viewportSize.y = size.height;
+  
+    RenderTargetDimensionsUniform *ptr = _renderTargetDimensions.contents;
+    ptr->width = _viewportSize.x;
+    ptr->height = _viewportSize.y;
 }
 
 - (NSString*) codeBitsAsString:(uint32_t)code width:(int)width
@@ -913,64 +905,17 @@ const static unsigned int blockDim = BLOCK_DIM;
     }
   }
   
-  // Crop when : (_render_texture.width != _render_reorder_out.width) || (_render_texture.height != _render_reorder_out.height)
-  
-  if (0) {
-    int width = (int) _render_texture.width;
-    int height = (int) _render_texture.height;
-    
-    id<MTLBlitCommandEncoder> blitEncoder = [commandBuffer blitCommandEncoder];
-    
-    MTLSize srcSize = MTLSizeMake(width, height, 1);
-    MTLOrigin srcOrigin = MTLOriginMake(0, 0, 0);
-    MTLOrigin dstOrigin = MTLOriginMake(0, 0, 0);
-    
-    [blitEncoder copyFromTexture:_render_block_padded_texture
-                     sourceSlice:0
-                     sourceLevel:0
-                    sourceOrigin:srcOrigin
-                      sourceSize:srcSize
-                       toTexture:_render_texture
-                destinationSlice:0
-                destinationLevel:0
-               destinationOrigin:dstOrigin];
-    
-    [blitEncoder endEncoding];
-  }
-  
   // Cropping copy operation from _render_block_padded_texture which is unsigned int values
-  // to _render_texture which contains pixel values. This compute texture will copy
-  // values and convert byte values to grayscale pixels.
-  
-  if (1) {
-    id <MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
-    
-    [computeEncoder setComputePipelineState:_cropCopyComputePipelineState];
-    
-    // input texture
+  // to _render_texture which contains pixel values. This copy operation will expand single
+  // byte values emitted by the huffman decoder as grayscale pixels.
 
-    [computeEncoder setTexture:_render_block_padded_texture
-                       atIndex:0];
-    
-    // output texture (defines the crop region)
-    
-    [computeEncoder setTexture:_render_texture
-                       atIndex:1];
-    
-    [computeEncoder dispatchThreadgroups:_threadgroupCount
-                   threadsPerThreadgroup:_threadgroupSize];
-    
-    [computeEncoder endEncoding];
-  }
-
-  // Obtain a renderPassDescriptor generated from the view's drawable textures
   MTLRenderPassDescriptor *renderToTexturePassDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
   
   if (renderToTexturePassDescriptor != nil)
   {
     renderToTexturePassDescriptor.colorAttachments[0].texture = _render_texture;
-    renderToTexturePassDescriptor.colorAttachments[0].loadAction = MTLLoadActionLoad;
-    renderToTexturePassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
+    //renderToTexturePassDescriptor.colorAttachments[0].loadAction = MTLLoadActionLoad;
+    //renderToTexturePassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
     
     id <MTLRenderCommandEncoder> renderEncoder =
       [commandBuffer renderCommandEncoderWithDescriptor:renderToTexturePassDescriptor];
@@ -988,6 +933,13 @@ const static unsigned int blockDim = BLOCK_DIM;
     [renderEncoder setVertexBuffer:_vertices
                             offset:0
                            atIndex:AAPLVertexInputIndexVertices];
+    
+    [renderEncoder setFragmentTexture:_render_block_padded_texture
+                              atIndex:0];
+    
+    [renderEncoder setFragmentBuffer:_renderTargetDimensions
+                              offset:0
+                             atIndex:0];
     
     // Draw the 3 vertices of our triangle
     [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
@@ -1017,7 +969,7 @@ const static unsigned int blockDim = BLOCK_DIM;
     MTLViewport mtlvp = {0.0, 0.0, _viewportSize.x, _viewportSize.y, -1.0, 1.0 };
     [renderEncoder setViewport:mtlvp];
     
-    [renderEncoder setRenderPipelineState:_pipelineState];
+    [renderEncoder setRenderPipelineState:_renderFromTexturePipelineState];
     
     [renderEncoder setVertexBuffer:_vertices
                             offset:0
