@@ -15,6 +15,75 @@
 
 using namespace std;
 
+
+// Generate signed delta, note that this method supports repeated value that delta to zero
+
+template <typename T>
+vector<T>
+encodeDelta(const vector<T> & orderVec)
+{
+  T prev;
+  vector<T> deltas;
+  deltas.reserve(orderVec.size());
+  
+  // The first value is always a delta from zero, so handle it before
+  // the loop logic.
+  
+  {
+    T val = orderVec[0];
+    deltas.push_back(val);
+    prev = val;
+  }
+  
+  int maxi = (int) orderVec.size();
+  for (int i = 1; i < maxi; i++) {
+    T val = orderVec[i];
+    T delta = val - prev;
+    deltas.push_back(delta);
+    prev = val;
+  }
+  
+  return std::move(deltas);
+}
+
+template <typename T>
+vector<T>
+decodePlusDelta(const vector<T> &deltas, const bool minusOne = false)
+{
+  T prev;
+  vector<T> values;
+  values.reserve(deltas.size());
+  
+  // The first value is always a delta from zero, so handle it before
+  // the loop logic.
+  
+  {
+    T val = deltas[0];
+    values.push_back(val);
+    prev = val;
+  }
+  
+  int maxi = (int) deltas.size();
+  for (int i = 1; i < maxi; i++) {
+    T delta = deltas[i];
+    if (minusOne) {
+      delta += 1;
+    }
+    T val = prev + delta;
+    values.push_back(val);
+    prev = val;
+  }
+  
+  return std::move(values);
+}
+
+template <typename T>
+vector<T>
+decodeDelta(const vector<T> &deltas)
+{
+  return decodePlusDelta(deltas, false);
+}
+
 static
 int
 originalSymbolBufferSize = 0;
@@ -470,6 +539,38 @@ vector<uint8_t> canonicalHeader;
   }
   
   return;
+}
+
+// Encode signed byte deltas
+
++ (NSData*) encodeSignedByteDeltas:(NSData*)data
+{
+  vector<int8_t> inBytes;
+  inBytes.resize(data.length);
+  memcpy(inBytes.data(), data.bytes, data.length);
+  
+  vector<int8_t> outDeltaBytes = encodeDelta(inBytes);
+  
+  NSMutableData *mDeltas = [NSMutableData data];
+  [mDeltas setLength:outDeltaBytes.size()];
+  memcpy((void*)mDeltas.bytes, (void*)outDeltaBytes.data(), outDeltaBytes.size());
+  return [NSData dataWithData:mDeltas];
+}
+
+// Decode signed byte deltas
+
++ (NSData*) decodeSignedByteDeltas:(NSData*)deltas
+{
+  vector<int8_t> inBytes;
+  inBytes.resize(deltas.length);
+  memcpy(inBytes.data(), deltas.bytes, deltas.length);
+  
+  vector<int8_t> outBytes = decodeDelta(inBytes);
+  
+  NSMutableData *mData = [NSMutableData data];
+  [mData setLength:outBytes.size()];
+  memcpy((void*)mData.bytes, (void*)outBytes.data(), outBytes.size());
+  return [NSData dataWithData:mData];
 }
 
 @end

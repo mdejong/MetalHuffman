@@ -46,4 +46,12 @@ typedef struct {
                 height:(int)height
               blockDim:(int)blockDim;
 
+// Encode signed byte deltas
+
++ (NSData*) encodeSignedByteDeltas:(NSData*)data;
+
+// Decode signed byte deltas
+
++ (NSData*) decodeSignedByteDeltas:(NSData*)deltas;
+
 @end

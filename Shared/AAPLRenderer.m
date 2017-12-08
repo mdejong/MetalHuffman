@@ -341,7 +341,7 @@ const static unsigned int blockDim = BLOCK_DIM;
     self = [super init];
     if(self)
     {
-      isCaptureRenderedTextureEnabled = 0;
+      isCaptureRenderedTextureEnabled = 1;
       
       mtkView.depthStencilPixelFormat = MTLPixelFormatInvalid;
       
@@ -372,11 +372,11 @@ const static unsigned int blockDim = BLOCK_DIM;
       
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING2;
-//      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
+      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_6x4_NOT_SQUARE;
 //      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
-      HuffRenderFrameConfig hcfg = TEST_IMAGE1;
+//      HuffRenderFrameConfig hcfg = TEST_IMAGE1;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
@@ -637,11 +637,74 @@ const static unsigned int blockDim = BLOCK_DIM;
 
       // Deal with the case where there are not enough total blocks to zero pad
       
-      if ((0)) {
+      if ((1)) {
 //        for (int i = 0; i < outBlockOrderSymbolsNumBytes; i++) {
 //          printf("outBlockOrderSymbolsPtr[%5i] = %d\n", i, outBlockOrderSymbolsPtr[i]);
 //        }
 
+        printf("block order\n");
+        
+        for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
+          printf("block %5d : ", blocki);
+          
+          uint8_t *blockStartPtr = outBlockOrderSymbolsPtr + (blocki * (blockDim * blockDim));
+          
+          for (int i = 0; i < (blockDim * blockDim); i++) {
+            printf("%5d ", blockStartPtr[i]);
+          }
+          printf("\n");
+        }
+        
+        printf("block order done\n");
+      }
+
+#if defined(IMPL_DELTAS_BEFORE_HUFF_ENCODING)
+      if ((1)) {
+        // byte deltas
+        
+        NSMutableArray *mRows = [NSMutableArray array];
+        
+        for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
+          NSMutableData *mRowData = [NSMutableData data];
+          uint8_t *blockStartPtr = outBlockOrderSymbolsPtr + (blocki * (blockDim * blockDim));
+          [mRowData appendBytes:blockStartPtr length:(blockDim * blockDim)];
+          [mRows addObject:mRowData];
+        }
+        
+        // Convert blocks to deltas
+        
+        NSMutableArray *mRowsOfDeltas = [NSMutableArray array];
+        
+        for ( NSData *rowData in mRows ) {
+          NSData *deltasData = [Huffman encodeSignedByteDeltas:rowData];
+          [mRowsOfDeltas addObject:deltasData];
+          
+#if defined(DEBUG)
+          // Check that decoding generates the original input
+          NSData *decodedDeltas = [Huffman decodeSignedByteDeltas:deltasData];
+          NSAssert([decodedDeltas isEqualToData:rowData], @"decoded deltas");
+#endif // DEBUG
+        }
+        
+        // Write delta values back over outBlockOrderSymbolsPtr
+        
+        int outWritei = 0;
+        
+        for ( NSData *deltaRow in mRowsOfDeltas ) {
+          uint8_t *ptr = (uint8_t *) deltaRow.bytes;
+          const int len = (int) deltaRow.length;
+          for ( int i = 0; i < len; i++) {
+            outBlockOrderSymbolsPtr[outWritei++] = ptr[i];
+          }
+        }
+      }
+#endif // IMPL_DELTAS_BEFORE_HUFF_ENCODING
+      
+      if ((1)) {
+        //        for (int i = 0; i < outBlockOrderSymbolsNumBytes; i++) {
+        //          printf("outBlockOrderSymbolsPtr[%5i] = %d\n", i, outBlockOrderSymbolsPtr[i]);
+        //        }
+        
         printf("block order\n");
         
         for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
@@ -672,6 +735,11 @@ const static unsigned int blockDim = BLOCK_DIM;
                       height:height
                     blockDim:blockDim];
   
+      if ((1)) {
+        printf("inNumBytes  %6d\n", outBlockOrderSymbolsNumBytes);
+        printf("outNumBytes %6d\n", (int)outHuffCodes.length);
+      }
+
       // Reparse the canonical header to load symbol table info
       
       [Huffman parseCanonicalHeader:outCanonHeader

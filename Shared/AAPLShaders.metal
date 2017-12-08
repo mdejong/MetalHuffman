@@ -189,6 +189,11 @@ huffComputeKernel(texture2d<ushort, access::write>  wTexture  [[texture(AAPLText
   
   ushort numBitsRead = 0;
   
+#if defined(IMPL_DELTAS_BEFORE_HUFF_ENCODING)
+  ushort prevSymbol = 0;
+#else
+#endif // IMPL_DELTAS_BEFORE_HUFF_ENCODING
+
   // For input (X,Y) in terms of block coordinates, determine the block root (upper left hand corner)
   // in pixel coordinates where the (blockDim*blockDim) symbols will be written to.
 
@@ -238,10 +243,15 @@ huffComputeKernel(texture2d<ushort, access::write>  wTexture  [[texture(AAPLText
     ushort dy = renderStep / blockDim;
     ushort2 outCoords = blockRootCoords + ushort2(dx, dy);
     
-    // FIXME: emit a single byte at a time via shader write as opposed to 32 bit pixels
-    
-    //half4 outSymbolColor  = half4(0.0h, 0.0h, hls.symbol/255.0h, 1.0h);
+    // Write output 8 bit symbol
+
+#if defined(IMPL_DELTAS_BEFORE_HUFF_ENCODING)
+    ushort outSymbol = (prevSymbol + hls.symbol) & 0xFF;
+    prevSymbol = outSymbol;
+#else
     ushort outSymbol = hls.symbol;
+#endif // IMPL_DELTAS_BEFORE_HUFF_ENCODING
+    
     wTexture.write(outSymbol, outCoords);
     
 #if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
