@@ -376,7 +376,8 @@ const static unsigned int blockDim = BLOCK_DIM;
 //      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_6x4_NOT_SQUARE;
 //      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
-      HuffRenderFrameConfig hcfg = TEST_IMAGE1;
+//      HuffRenderFrameConfig hcfg = TEST_IMAGE1;
+      HuffRenderFrameConfig hcfg = TEST_IMAGE2;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
@@ -736,8 +737,8 @@ const static unsigned int blockDim = BLOCK_DIM;
                     blockDim:blockDim];
   
       if ((1)) {
-        printf("inNumBytes  %6d\n", outBlockOrderSymbolsNumBytes);
-        printf("outNumBytes %6d\n", (int)outHuffCodes.length);
+        printf("inNumBytes   %8d\n", outBlockOrderSymbolsNumBytes);
+        printf("outNumBytes  %8d\n", (int)outHuffCodes.length);
       }
 
       // Reparse the canonical header to load symbol table info
@@ -1555,7 +1556,7 @@ const static unsigned int blockDim = BLOCK_DIM;
       
       // Dump output words as bytes
       
-      if ((1)) {
+      if ((0)) {
         fprintf(stdout, "_render_block_padded_texture\n");
         
         // Dump 24 bit values as int

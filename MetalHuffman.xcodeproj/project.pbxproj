@@ -31,6 +31,7 @@
 		3AF7EA0A1EB64A46003BB06D /* AAPLRenderer.m in Sources */ = {isa = PBXBuildFile; fileRef = 3AF7E9BF1EB64A46003BB06D /* AAPLRenderer.m */; };
 		3AF7EA0B1EB64A46003BB06D /* AAPLRenderer.m in Sources */ = {isa = PBXBuildFile; fileRef = 3AF7E9BF1EB64A46003BB06D /* AAPLRenderer.m */; };
 		3AF7EA0C1EB64A46003BB06D /* AAPLRenderer.m in Sources */ = {isa = PBXBuildFile; fileRef = 3AF7E9BF1EB64A46003BB06D /* AAPLRenderer.m */; };
+		3C4DC8FB1FDB495F00AABD25 /* ImageHuge.png in Resources */ = {isa = PBXBuildFile; fileRef = 3C4DC8FA1FDB495F00AABD25 /* ImageHuge.png */; };
 		3CB220AA1F7E03FF0023B470 /* Image.png in Resources */ = {isa = PBXBuildFile; fileRef = 3CB220A81F7E03FF0023B470 /* Image.png */; };
 		3CDE879F1FBDFE1300EDB3FC /* Huffman.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3CDE879E1FBDFE1300EDB3FC /* Huffman.mm */; };
 		3CDE87A21FC0FAAC00EDB3FC /* Util.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CDE87A11FC0FAAC00EDB3FC /* Util.m */; };
@@ -76,6 +77,7 @@
 		3AF7EA011EB64A46003BB06D /* AAPLViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AAPLViewController.m; sourceTree = "<group>"; };
 		3AF7EA041EB64A46003BB06D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		3AF7EA061EB64A46003BB06D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		3C4DC8FA1FDB495F00AABD25 /* ImageHuge.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ImageHuge.png; sourceTree = "<group>"; };
 		3CB220A81F7E03FF0023B470 /* Image.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Image.png; sourceTree = "<group>"; };
 		3CDE879D1FBDFE1300EDB3FC /* Huffman.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Huffman.h; sourceTree = "<group>"; };
 		3CDE879E1FBDFE1300EDB3FC /* Huffman.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = Huffman.mm; sourceTree = "<group>"; };
@@ -162,6 +164,7 @@
 		3AF7E9BC1EB64A46003BB06D /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				3C4DC8FA1FDB495F00AABD25 /* ImageHuge.png */,
 				3A1857EF1EB7AF9E007D4F50 /* Image.tga */,
 				3CB220A81F7E03FF0023B470 /* Image.png */,
 				3CE5C0F91FCCF46A0031E0EA /* HuffRenderFrame.h */,
@@ -383,6 +386,7 @@
 				3AF7E9D91EB64A46003BB06D /* Main.storyboard in Resources */,
 				3A1857F01EB7AF9E007D4F50 /* Image.tga in Resources */,
 				3AF7E9DC1EB64A46003BB06D /* LaunchScreen.storyboard in Resources */,
+				3C4DC8FB1FDB495F00AABD25 /* ImageHuge.png in Resources */,
 				3CB220AA1F7E03FF0023B470 /* Image.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

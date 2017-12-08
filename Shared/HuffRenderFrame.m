@@ -744,6 +744,26 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       break;
     }
 
+    case TEST_IMAGE2: {
+      // Load PNG image, convert to grayscale, load bytes
+      
+      NSString *resFilename = @"ImageHuge.png";
+      NSString* path = [[NSBundle mainBundle] pathForResource:resFilename ofType:nil];
+      NSAssert(path, @"path is nil");
+      
+      UIImage *img = [UIImage imageWithContentsOfFile:path];
+      assert(img);
+      
+      // Convert PNG image
+      
+      renderFrame.renderWidth = img.size.width;
+      renderFrame.renderHeight = img.size.height;
+      
+      renderFrame.inputData = [self convertImageToGrayScale:img];
+      
+      break;
+    }
+
   }
   
   assert(renderFrame.inputData);
