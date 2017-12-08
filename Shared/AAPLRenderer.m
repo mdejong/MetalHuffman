@@ -341,7 +341,7 @@ const static unsigned int blockDim = BLOCK_DIM;
     self = [super init];
     if(self)
     {
-      isCaptureRenderedTextureEnabled = 1;
+      isCaptureRenderedTextureEnabled = 0;
       
       mtkView.depthStencilPixelFormat = MTLPixelFormatInvalid;
       
@@ -370,13 +370,13 @@ const static unsigned int blockDim = BLOCK_DIM;
       
       // Query size and byte data for input frame that will be rendered
       
-      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING1;
+//      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING2;
 //      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_6x4_NOT_SQUARE;
 //      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
-//      HuffRenderFrameConfig hcfg = TEST_IMAGE1;
+      HuffRenderFrameConfig hcfg = TEST_IMAGE1;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
@@ -637,7 +637,7 @@ const static unsigned int blockDim = BLOCK_DIM;
 
       // Deal with the case where there are not enough total blocks to zero pad
       
-      if ((1)) {
+      if ((0)) {
 //        for (int i = 0; i < outBlockOrderSymbolsNumBytes; i++) {
 //          printf("outBlockOrderSymbolsPtr[%5i] = %d\n", i, outBlockOrderSymbolsPtr[i]);
 //        }
@@ -1487,7 +1487,7 @@ const static unsigned int blockDim = BLOCK_DIM;
       
       // Dump output words as bytes
       
-      if ((1)) {
+      if ((0)) {
         fprintf(stdout, "_render_block_padded_texture\n");
         
         // Dump 24 bit values as int
@@ -1521,7 +1521,7 @@ const static unsigned int blockDim = BLOCK_DIM;
       
       // Dump output words as BGRA
       
-      if ((1)) {
+      if ((0)) {
         // Dump 24 bit values as int
         
         fprintf(stdout, "_render_texture\n");
@@ -1539,7 +1539,7 @@ const static unsigned int blockDim = BLOCK_DIM;
         fprintf(stdout, "done\n");
       }
 
-      if ((1)) {
+      if ((0)) {
         // Dump 24 bit values as int
         
         fprintf(stdout, "expected symbols\n");
@@ -1553,11 +1553,8 @@ const static unsigned int blockDim = BLOCK_DIM;
         for ( int row = 0; row < height; row++ ) {
           for ( int col = 0; col < width; col++ ) {
             int offset = (row * width) + col;
-//            int v = pixelsPtr[offset] & 0x00FFFFFF;
-            
             int v = expectedDataPtr[offset];
             
-            //fprintf(stdout, "%5d ", v);
             fprintf(stdout, "%6X ", v);
           }
           fprintf(stdout, "\n");
