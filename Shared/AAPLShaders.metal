@@ -102,14 +102,16 @@ samplingPassThroughShader(RasterizerData in [[stage_in]],
 fragment half4
 samplingCropShader(RasterizerData in [[stage_in]],
                    texture2d<ushort, access::read> inTexture [[ texture(0) ]],
-                   const device RenderTargetDimensionsUniform &rtd [[ buffer(0) ]])
+                   constant RenderTargetDimensionsUniform &rtd [[ buffer(0) ]])
 {
-  float2 textureCoordinate = in.textureCoordinate;
-  float2 dims = float2(rtd.width, rtd.height);
-  float2 textureOffsets = textureCoordinate * dims;
-  float2 textureOffsetsR = round(textureOffsets);
-  ushort2 textureOffsetsI = ushort2(textureOffsetsR.x, textureOffsetsR.y);
-  ushort inByte = inTexture.read(textureOffsetsI).x;
+  // Convert float coordinates to integer (X,Y) offsets
+  const float2 textureSize = float2(rtd.width, rtd.height);
+  float2 c = in.textureCoordinate;
+  const float2 halfPixel = (1.0 / textureSize) / 2.0;
+  c -= halfPixel;
+  ushort2 iCoordinates = ushort2(round(c * textureSize));
+  
+  ushort inByte = inTexture.read(iCoordinates).x;
   half value = inByte / 255.0h;
   half4 outGrayscale = half4(value, value, value, 1.0);
   return outGrayscale;

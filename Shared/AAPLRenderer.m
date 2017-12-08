@@ -263,6 +263,26 @@ const static unsigned int blockDim = BLOCK_DIM;
   return;
 }
 
+// Query a texture that contains byte values and return in
+// a buffer of uint8_t typed values.
+
++ (NSData*) getTextureBytes:(id<MTLTexture>)texture
+{
+  int width = (int) texture.width;
+  int height = (int) texture.height;
+  
+  NSMutableData *mFramebuffer = [NSMutableData dataWithLength:width*height*sizeof(uint8_t)];
+  
+  [texture getBytes:(void*)mFramebuffer.mutableBytes
+           bytesPerRow:width*sizeof(uint8_t)
+         bytesPerImage:width*height*sizeof(uint8_t)
+            fromRegion:MTLRegionMake2D(0, 0, width, height)
+           mipmapLevel:0
+                 slice:0];
+  
+  return [NSData dataWithData:mFramebuffer];
+}
+
 // Query pixel contents of a texture and return as uint32_t
 // values in a NSData*.
 
@@ -276,14 +296,15 @@ const static unsigned int blockDim = BLOCK_DIM;
   NSMutableData *mFramebuffer = [NSMutableData dataWithLength:width*height*sizeof(uint32_t)];
   
   [texture getBytes:(void*)mFramebuffer.mutableBytes
-           bytesPerRow:width*sizeof(uint32_t)
-         bytesPerImage:width*height*sizeof(uint32_t)
-            fromRegion:MTLRegionMake2D(0, 0, width, height)
-           mipmapLevel:0
-                 slice:0];
+        bytesPerRow:width*sizeof(uint32_t)
+      bytesPerImage:width*height*sizeof(uint32_t)
+         fromRegion:MTLRegionMake2D(0, 0, width, height)
+        mipmapLevel:0
+              slice:0];
   
   return [NSData dataWithData:mFramebuffer];
 }
+
 
 + (void) calculateThreadgroup:(CGSize)inSize
                      blockDim:(int)blockDim
@@ -616,7 +637,7 @@ const static unsigned int blockDim = BLOCK_DIM;
 
       // Deal with the case where there are not enough total blocks to zero pad
       
-      if ((0)) {
+      if ((1)) {
 //        for (int i = 0; i < outBlockOrderSymbolsNumBytes; i++) {
 //          printf("outBlockOrderSymbolsPtr[%5i] = %d\n", i, outBlockOrderSymbolsPtr[i]);
 //        }
@@ -875,8 +896,8 @@ const static unsigned int blockDim = BLOCK_DIM;
   if (renderToTexturePassDescriptor != nil)
   {
     renderToTexturePassDescriptor.colorAttachments[0].texture = _render_texture;
-    //renderToTexturePassDescriptor.colorAttachments[0].loadAction = MTLLoadActionLoad;
-    //renderToTexturePassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
+    renderToTexturePassDescriptor.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+    renderToTexturePassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
     
     id <MTLRenderCommandEncoder> renderEncoder =
       [commandBuffer renderCommandEncoderWithDescriptor:renderToTexturePassDescriptor];
@@ -1454,7 +1475,6 @@ const static unsigned int blockDim = BLOCK_DIM;
     if (isCaptureRenderedTextureEnabled && self.huffRenderFrame.capture) {
       // Query output texture
       
-      //id<MTLTexture> outTexture = _render_texture;
       id<MTLTexture> outTexture = _render_block_padded_texture;
       
       // Copy texture data into debug framebuffer, note that this include 2x scale
@@ -1462,53 +1482,27 @@ const static unsigned int blockDim = BLOCK_DIM;
       int width = (int) outTexture.width;
       int height = (int) outTexture.height;
       
-      NSMutableData *mFramebuffer = [NSMutableData dataWithLength:width*height*sizeof(uint32_t)];
+      NSData *bytesData = [self.class getTextureBytes:outTexture];
+      uint8_t *bytesPtr = (uint8_t*) bytesData.bytes;
       
-      [outTexture getBytes:(void*)mFramebuffer.mutableBytes
-               bytesPerRow:width*sizeof(uint32_t)
-             bytesPerImage:width*height*sizeof(uint32_t)
-                fromRegion:MTLRegionMake2D(0, 0, width, height)
-               mipmapLevel:0
-                     slice:0];
+      // Dump output words as bytes
       
-      // Dump output words as BGRA
-      
-      if ((0)) {
+      if ((1)) {
         fprintf(stdout, "_render_block_padded_texture\n");
         
         // Dump 24 bit values as int
         
         for ( int row = 0; row < height; row++ ) {
-          uint32_t *rowPtr = ((uint32_t*) mFramebuffer.mutableBytes) + (row * width);
           for ( int col = 0; col < width; col++ ) {
-            int v = rowPtr[col] & 0x00FFFFFF;
+            int offset = (row * width) + col;
+            int v = bytesPtr[offset] & 0xFF;
             fprintf(stdout, "%5d ", v);
           }
           fprintf(stdout, "\n");
         }
         
         fprintf(stdout, "done\n");
-      }
-      
-      if ((0)) {
-        // Dump (X,Y) from 16 bit output
-        
-        fprintf(stdout, "(X,Y)\n");
-        
-        for ( int row = 0; row < height; row++ ) {
-          uint32_t *rowPtr = ((uint32_t*) mFramebuffer.mutableBytes) + (row * width);
-          for ( int col = 0; col < width; col++ ) {
-            //int decodedSymbol = rowPtr[col] & 0xFF;
-            int X = (rowPtr[col] >> 8) & 0xFF;
-            int Y = rowPtr[col] & 0xFF;
-            fprintf(stdout, "(%2d %2d) ", X, Y);
-          }
-          fprintf(stdout, "\n");
-        }
-        
-        fprintf(stdout, "done\n");
-      }
-
+      }      
     }
     
     // Capture the render to texture state at the render to size
@@ -1527,7 +1521,7 @@ const static unsigned int blockDim = BLOCK_DIM;
       
       // Dump output words as BGRA
       
-      if ((0)) {
+      if ((1)) {
         // Dump 24 bit values as int
         
         fprintf(stdout, "_render_texture\n");
@@ -1535,23 +1529,38 @@ const static unsigned int blockDim = BLOCK_DIM;
         for ( int row = 0; row < height; row++ ) {
           for ( int col = 0; col < width; col++ ) {
             int offset = (row * width) + col;
-            int v = pixelsPtr[offset] & 0x00FFFFFF;
-            fprintf(stdout, "%5d ", v);
+            uint32_t v = pixelsPtr[offset] & 0x00FFFFFF;
+            //fprintf(stdout, "%5d ", v);
+            fprintf(stdout, "%6X ", v);
           }
           fprintf(stdout, "\n");
         }
         
-        if ((0)) {
-          for ( int row = 0; row < height; row++ ) {
-            for ( int col = 0; col < width; col++ ) {
-              int offset = (row * width) + col;
-              int v = pixelsPtr[offset] & 0x00FFFFFF;
-              
-              NSString *bitsAsString = [self codeBitsAsString:v width:16];
-              fprintf(stdout, "%s ", [bitsAsString UTF8String]);
-            }
-            fprintf(stdout, "\n");
+        fprintf(stdout, "done\n");
+      }
+
+      if ((1)) {
+        // Dump 24 bit values as int
+        
+        fprintf(stdout, "expected symbols\n");
+        
+        NSData *expectedData = _huffInputBytes;
+        assert(expectedData);
+        uint8_t *expectedDataPtr = (uint8_t *) expectedData.bytes;
+        const int numBytes = (int)expectedData.length * sizeof(uint8_t);
+        assert(numBytes == (width * height));
+        
+        for ( int row = 0; row < height; row++ ) {
+          for ( int col = 0; col < width; col++ ) {
+            int offset = (row * width) + col;
+//            int v = pixelsPtr[offset] & 0x00FFFFFF;
+            
+            int v = expectedDataPtr[offset];
+            
+            //fprintf(stdout, "%5d ", v);
+            fprintf(stdout, "%6X ", v);
           }
+          fprintf(stdout, "\n");
         }
         
         fprintf(stdout, "done\n");
@@ -1572,7 +1581,7 @@ const static unsigned int blockDim = BLOCK_DIM;
             int offset = (row * width) + col;
             
             int expectedSymbol = expectedDataPtr[offset]; // read byte
-            int renderedSymbol = renderedPixelPtr[offset] & 0xFF;
+            int renderedSymbol = renderedPixelPtr[offset] & 0xFF; // compare to jsut the B component
             
             if (renderedSymbol != expectedSymbol) {
               printf("renderedSymbol != expectedSymbol : %3d != %3d at (X,Y) (%3d,%3d) offset %d\n", renderedSymbol, expectedSymbol, col, row, offset);
