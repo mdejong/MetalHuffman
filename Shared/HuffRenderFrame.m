@@ -61,6 +61,42 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
 }
 
 
+// Convert an image to grayscale byte values and return as a NSData
+
++ (NSData*) convertImageToGrayScale:(UIImage *)image
+{
+  // Create image rectangle with current image width/height
+  CGRect imageRect = CGRectMake(0, 0, image.size.width, image.size.height);
+  
+  // Grayscale color space
+  CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceGray();
+  
+  // Create bitmap content with current image size and grayscale colorspace
+  CGContextRef context = CGBitmapContextCreate(nil, image.size.width, image.size.height, 8, 0, colorSpace, kCGImageAlphaNone);
+  
+  // Draw image into current context, with specified rectangle
+  // using previously defined context (with grayscale colorspace)
+  CGContextDrawImage(context, imageRect, [image CGImage]);
+  
+  // Create bitmap image info from pixel data in current context
+  //CGImageRef imageRef = CGBitmapContextCreateImage(context);
+  
+  // Create a new UIImage object
+  //UIImage *newImage = [UIImage imageWithCGImage:imageRef];
+  
+  NSMutableData *mData = [NSMutableData dataWithBytes:CGBitmapContextGetData(context) length:image.size.width*image.size.height];
+  
+  // Release colorspace, context and bitmap information
+  CGColorSpaceRelease(colorSpace);
+  CGContextRelease(context);
+  //CFRelease(imageRef);
+  
+  // Return the new grayscale image
+  //return newImage;
+  
+  return [NSData dataWithData:mData];
+}
+
 + (HuffRenderFrame*) renderFrameForConfig:(HuffRenderFrameConfig)config
 {
   
@@ -661,7 +697,6 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
 //      renderFrame.renderWidth = 2048;
 //      renderFrame.renderHeight = 1536;
       
-// Too large, causes runtime error
       renderFrame.renderWidth = 1024;
       renderFrame.renderHeight = 1024;
 
@@ -688,6 +723,27 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       
       break;
     }
+      
+    case TEST_IMAGE1: {
+      // Load PNG image, convert to grayscale, load bytes
+      
+      NSString *resFilename = @"Image.png";
+      NSString* path = [[NSBundle mainBundle] pathForResource:resFilename ofType:nil];
+      NSAssert(path, @"path is nil");
+      
+      UIImage *img = [UIImage imageWithContentsOfFile:path];
+      assert(img);
+      
+      // Convert PNG image
+      
+      renderFrame.renderWidth = img.size.width;
+      renderFrame.renderHeight = img.size.height;
+      
+      renderFrame.inputData = [self convertImageToGrayScale:img];
+      
+      break;
+    }
+
   }
   
   assert(renderFrame.inputData);

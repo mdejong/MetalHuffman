@@ -8,7 +8,8 @@ typedef enum {
   TEST_4x8_INCREASING1,
   TEST_2x8_INCREASING1,
   TEST_6x4_NOT_SQUARE,
-  TEST_LARGE_RANDOM
+  TEST_LARGE_RANDOM,
+  TEST_IMAGE1
 } HuffRenderFrameConfig;
 
 // Header shared between C code here, which executes Metal API commands, and .metal files, which

@@ -354,7 +354,8 @@ const static unsigned int blockDim = BLOCK_DIM;
 //      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_6x4_NOT_SQUARE;
-      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
+//      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
+      HuffRenderFrameConfig hcfg = TEST_IMAGE1;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
@@ -381,6 +382,13 @@ const static unsigned int blockDim = BLOCK_DIM;
       
       self->renderBlockWidth = blockWidth;
       self->renderBlockHeight = blockHeight;
+      
+      _renderTargetDimensions = [_device newBufferWithLength:sizeof(RenderTargetDimensionsUniform)
+                                                     options:MTLResourceStorageModeShared];
+      
+      RenderTargetDimensionsUniform *ptr = _renderTargetDimensions.contents;
+      ptr->width = width;
+      ptr->height = height;
       
       _render_texture = [self makeBGRACoreVideoTexture:CGSizeMake(width,height)
                                     cvPixelBufferRefPtr:&_render_cv_buffer];
@@ -427,9 +435,6 @@ const static unsigned int blockDim = BLOCK_DIM;
         _vertices = [_device newBufferWithBytes:quadVertices
                                          length:sizeof(quadVertices)
                                         options:MTLResourceStorageModeShared];
-
-        _renderTargetDimensions = [_device newBufferWithLength:sizeof(RenderTargetDimensionsUniform)
-                                                       options:MTLResourceStorageModeShared];
 
       // Calculate the number of vertices by dividing the byte length by the size of each vertex
       _numVertices = sizeof(quadVertices) / sizeof(AAPLVertex);
@@ -793,7 +798,7 @@ const static unsigned int blockDim = BLOCK_DIM;
       int cmp = memcmp(decodedBlockOrderSymbolsPtr, outBlockOrderSymbolsPtr, outBlockOrderSymbolsNumBytes);
       assert(cmp == 0);
 #endif // DEBUG
-   
+      
     } // end of init if block
   
     return self;
@@ -806,10 +811,6 @@ const static unsigned int blockDim = BLOCK_DIM;
     //   values to our vertex shader when we draw
     _viewportSize.x = size.width;
     _viewportSize.y = size.height;
-  
-    RenderTargetDimensionsUniform *ptr = _renderTargetDimensions.contents;
-    ptr->width = _viewportSize.x;
-    ptr->height = _viewportSize.y;
 }
 
 - (NSString*) codeBitsAsString:(uint32_t)code width:(int)width
