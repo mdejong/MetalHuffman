@@ -113,7 +113,7 @@ samplingCropShader(RasterizerData in [[stage_in]],
   
   ushort inByte = inTexture.read(iCoordinates).x;
   half value = inByte / 255.0h;
-  half4 outGrayscale = half4(value, value, value, 1.0);
+  half4 outGrayscale = half4(value, value, value, 1.0h);
   return outGrayscale;
 }
 
@@ -131,7 +131,7 @@ kernel void crop_copy_and_grayscale(
 
   ushort inByte = inTexture.read(gid).x;
   half value = inByte / 255.0h;
-  half4 outGrayscale = half4(value, value, value, 1.0);
+  half4 outGrayscale = half4(value, value, value, 1.0h);
   outTexture.write(outGrayscale, gid);
 }
 
