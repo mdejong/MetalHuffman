@@ -320,7 +320,7 @@ const static unsigned int blockDim = BLOCK_DIM;
     self = [super init];
     if(self)
     {
-      isCaptureRenderedTextureEnabled = 0;
+      isCaptureRenderedTextureEnabled = 1;
       
       mtkView.depthStencilPixelFormat = MTLPixelFormatInvalid;
       
@@ -349,13 +349,13 @@ const static unsigned int blockDim = BLOCK_DIM;
       
       // Query size and byte data for input frame that will be rendered
       
-//      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING1;
+      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_4x4_INCREASING2;
 //      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_6x4_NOT_SQUARE;
 //      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
-      HuffRenderFrameConfig hcfg = TEST_IMAGE1;
+//      HuffRenderFrameConfig hcfg = TEST_IMAGE1;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
@@ -475,9 +475,6 @@ const static unsigned int blockDim = BLOCK_DIM;
       CGSize renderSize;
       
       {
-        assert((width % blockDim) == 0);
-        assert((height % blockDim) == 0);
-        
         renderSize.width = blockWidth;
         renderSize.height = blockHeight;
       }
@@ -626,7 +623,7 @@ const static unsigned int blockDim = BLOCK_DIM;
 
         printf("block order\n");
         
-        for ( int blocki = 0; blocki < blockWidth * blockHeight; blocki++ ) {
+        for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
           printf("block %5d : ", blocki);
           
           uint8_t *blockStartPtr = outBlockOrderSymbolsPtr + (blocki * (blockDim * blockDim));
@@ -638,43 +635,6 @@ const static unsigned int blockDim = BLOCK_DIM;
         }
         
         printf("block order done\n");
-      }
-      
-      // Generate an ordering where blocks are taken into account and the data is
-      // ordered so that the first value in each set of (blockDim * blockDim) blocks
-      // is stored together. The makes it possible to process all the value in each
-      // block without ???
-      
-      // FIXME: unused
-      
-      if ((0))
-      {
-        NSMutableData *outBlockReorderData = [NSMutableData dataWithLength:outBlockOrderSymbolsNumBytes];
-        uint8_t *outBlockReorderPtr = (uint8_t *) outBlockReorderData.bytes;
-        int outBlockReorderOffset = 0;
-        
-        for ( int blockOffset = 0; blockOffset < (blockWidth * blockHeight); blockOffset++ ) {
-          for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
-            uint8_t *blockStartPtr = outBlockOrderSymbolsPtr + (blocki * (blockWidth * blockHeight));
-            uint8_t blockValue = blockStartPtr[blockOffset];
-            outBlockReorderPtr[outBlockReorderOffset++] = blockValue;
-          }
-        }
-        
-        if ((0)) {
-          for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
-            printf("block %5d : ", blocki);
-            
-            uint8_t *blockStartPtr = outBlockReorderPtr + (blocki * (blockWidth * blockHeight));
-            
-            for (int i = 0; i < (blockDim * blockDim); i++) {
-              printf("%5d ", blockStartPtr[i]);
-            }
-            printf("\n");
-          }
-        }
-        
-        _blockByBlockReorder = [NSData dataWithData:outBlockReorderData];
       }
       
       // number of blocks must be an exact multiple of the block dimension
