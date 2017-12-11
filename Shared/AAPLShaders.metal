@@ -101,7 +101,7 @@ samplingPassThroughShader(RasterizerData in [[stage_in]],
 
 fragment half4
 samplingCropShader(RasterizerData in [[stage_in]],
-                   texture2d<ushort, access::read> inTexture [[ texture(0) ]],
+                   texture2d<half, access::read> inTexture [[ texture(0) ]],
                    constant RenderTargetDimensionsUniform &rtd [[ buffer(0) ]])
 {
   // Convert float coordinates to integer (X,Y) offsets
@@ -111,8 +111,7 @@ samplingCropShader(RasterizerData in [[stage_in]],
   c -= halfPixel;
   ushort2 iCoordinates = ushort2(round(c * textureSize));
   
-  ushort inByte = inTexture.read(iCoordinates).x;
-  half value = inByte / 255.0h;
+  half value = inTexture.read(iCoordinates).x;
   half4 outGrayscale = half4(value, value, value, 1.0h);
   return outGrayscale;
 }
@@ -121,7 +120,7 @@ samplingCropShader(RasterizerData in [[stage_in]],
 // texture. In addition, this implementation will convert byte data to grayscale pixels.
 
 kernel void crop_copy_and_grayscale(
-                                    texture2d<ushort, access::read> inTexture [[texture(0)]],
+                                    texture2d<half, access::read> inTexture [[texture(0)]],
                                     texture2d<half, access::write> outTexture [[texture(1)]],
                                     uint2 gid [[thread_position_in_grid]])
 {
@@ -129,8 +128,7 @@ kernel void crop_copy_and_grayscale(
     return;
   }
 
-  ushort inByte = inTexture.read(gid).x;
-  half value = inByte / 255.0h;
+  half value = inTexture.read(gid).x;
   half4 outGrayscale = half4(value, value, value, 1.0h);
   outTexture.write(outGrayscale, gid);
 }
@@ -159,7 +157,7 @@ kernel void crop_copy_and_grayscale(
 // block0 one byte at a time.
 
 kernel void
-huffComputeKernel(texture2d<ushort, access::write>  wTexture  [[texture(AAPLTexturePaddedOut)]],
+huffComputeKernel(texture2d<half, access::write>  wTexture  [[texture(AAPLTexturePaddedOut)]],
 #if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
                   texture2d<half, access::write>  debugPixelBlockiTexture  [[texture(AAPLTextureBlocki)]],
                   texture2d<half, access::write>  debugRootBitOffsetTexture  [[texture(AAPLTextureRootBitOffset)]],
@@ -252,7 +250,7 @@ huffComputeKernel(texture2d<ushort, access::write>  wTexture  [[texture(AAPLText
     ushort outSymbol = hls.symbol;
 #endif // IMPL_DELTAS_BEFORE_HUFF_ENCODING
     
-    wTexture.write(outSymbol, outCoords);
+    wTexture.write(outSymbol/255.0h, outCoords);
     
 #if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
     // Each debug value save operation will write to the block location but

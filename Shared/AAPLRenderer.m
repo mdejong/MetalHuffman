@@ -196,8 +196,9 @@ const static unsigned int blockDim = BLOCK_DIM;
   MTLTextureDescriptor *textureDescriptor = [[MTLTextureDescriptor alloc] init];
   
   // Each value in this texture is an 8 bit integer value in the range (0,255) inclusive
+  // represented by a half float
   
-  textureDescriptor.pixelFormat = MTLPixelFormatR8Uint;
+  textureDescriptor.pixelFormat = MTLPixelFormatR8Unorm;
   textureDescriptor.width = (int) size.width;
   textureDescriptor.height = (int) size.height;
   
