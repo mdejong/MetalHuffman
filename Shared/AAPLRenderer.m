@@ -103,12 +103,6 @@ const static unsigned int blockDim = BLOCK_DIM;
     // The Metal buffer that will hold render dimensions
     id<MTLBuffer> _renderTargetDimensionsAndBlockDimensionsUniform;
   
-  id<MTLBuffer> _rt0;
-  id<MTLBuffer> _rt1;
-  id<MTLBuffer> _rt2;
-  id<MTLBuffer> _rt3;
-  id<MTLBuffer> _rt4;
-  
   // The Metal buffer stores the number of bits into the
   // huffman codes buffer where the symbol at a given
   // block begins. This table keeps the huffman codes
@@ -463,21 +457,6 @@ const static unsigned int blockDim = BLOCK_DIM;
         ptr->height = height;
         ptr->blockWidth = blockWidth;
         ptr->blockHeight = blockHeight;
-      }
-      
-      {
-        // 4 renders of 12 and 1 of 16
-
-        _rt0 = [_device newBufferWithLength:sizeof(RenderPassDimensionsAndOffsetUniform)
-                                    options:MTLResourceStorageModeShared];
-        _rt1 = [_device newBufferWithLength:sizeof(RenderPassDimensionsAndOffsetUniform)
-                                    options:MTLResourceStorageModeShared];
-        _rt2 = [_device newBufferWithLength:sizeof(RenderPassDimensionsAndOffsetUniform)
-                                    options:MTLResourceStorageModeShared];
-        _rt3 = [_device newBufferWithLength:sizeof(RenderPassDimensionsAndOffsetUniform)
-                                    options:MTLResourceStorageModeShared];
-        _rt4 = [_device newBufferWithLength:sizeof(RenderPassDimensionsAndOffsetUniform)
-                                    options:MTLResourceStorageModeShared];
       }
       
       _render_texture = [self makeBGRACoreVideoTexture:CGSizeMake(width,height)
@@ -1181,14 +1160,8 @@ const static unsigned int blockDim = BLOCK_DIM;
     [renderEncoder setFragmentBuffer:_huffSymbolTable2
                               offset:0
                              atIndex:3];
-    {
-      RenderPassDimensionsAndOffsetUniform *ptr = _rt0.contents;
-      ptr->width = blockWidth;
-      ptr->height = blockHeight;
-      ptr->offset = 0;
-    }
     
-    [renderEncoder setFragmentBuffer:_rt0
+    [renderEncoder setFragmentBuffer:_renderTargetDimensionsAndBlockDimensionsUniform
                               offset:0
                              atIndex:4];
 
@@ -1264,14 +1237,8 @@ const static unsigned int blockDim = BLOCK_DIM;
       [renderEncoder setFragmentBuffer:_huffSymbolTable2
                                 offset:0
                                atIndex:3];
-      {
-        RenderPassDimensionsAndOffsetUniform *ptr = _rt1.contents;
-        ptr->width = blockWidth;
-        ptr->height = blockHeight;
-        ptr->offset = 1;
-      }
       
-      [renderEncoder setFragmentBuffer:_rt1
+      [renderEncoder setFragmentBuffer:_renderTargetDimensionsAndBlockDimensionsUniform
                                 offset:0
                                atIndex:4];
       
@@ -1346,15 +1313,8 @@ const static unsigned int blockDim = BLOCK_DIM;
       [renderEncoder setFragmentBuffer:_huffSymbolTable2
                                 offset:0
                                atIndex:3];
-
-      {
-        RenderPassDimensionsAndOffsetUniform *ptr = _rt2.contents;
-        ptr->width = blockWidth;
-        ptr->height = blockHeight;
-        ptr->offset = 2;
-      }
       
-      [renderEncoder setFragmentBuffer:_rt2
+      [renderEncoder setFragmentBuffer:_renderTargetDimensionsAndBlockDimensionsUniform
                                 offset:0
                                atIndex:4];
       
@@ -1429,15 +1389,8 @@ const static unsigned int blockDim = BLOCK_DIM;
       [renderEncoder setFragmentBuffer:_huffSymbolTable2
                                 offset:0
                                atIndex:3];
-
-      {
-        RenderPassDimensionsAndOffsetUniform *ptr = _rt3.contents;
-        ptr->width = blockWidth;
-        ptr->height = blockHeight;
-        ptr->offset = 3;
-      }
       
-      [renderEncoder setFragmentBuffer:_rt3
+      [renderEncoder setFragmentBuffer:_renderTargetDimensionsAndBlockDimensionsUniform
                                 offset:0
                                atIndex:4];
       
@@ -1512,15 +1465,8 @@ const static unsigned int blockDim = BLOCK_DIM;
       [renderEncoder setFragmentBuffer:_huffSymbolTable2
                                 offset:0
                                atIndex:3];
-
-      {
-        RenderPassDimensionsAndOffsetUniform *ptr = _rt4.contents;
-        ptr->width = blockWidth;
-        ptr->height = blockHeight;
-        ptr->offset = 4; // ? what to pass here
-      }
       
-      [renderEncoder setFragmentBuffer:_rt4
+      [renderEncoder setFragmentBuffer:_renderTargetDimensionsAndBlockDimensionsUniform
                                 offset:0
                                atIndex:4];
       

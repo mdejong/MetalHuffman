@@ -108,7 +108,7 @@ samplingPassThroughShader(RasterizerData in [[stage_in]],
 fragment half4
 samplingCropShader(RasterizerData in [[stage_in]],
                    texture2d<half, access::read> inTexture [[ texture(0) ]],
-                   constant RenderTargetDimensionsUniform &rtd [[ buffer(0) ]])
+                   constant RenderTargetDimensionsAndBlockDimensionsUniform & rtd [[ buffer(0) ]])
 {
   // Convert float coordinates to integer (X,Y) offsets
   const float2 textureSize = float2(rtd.width, rtd.height);
@@ -296,17 +296,17 @@ huffFragmentShaderB8W12(RasterizerData in [[stage_in]],
                         const device uint8_t *huffBuff [[ buffer(1) ]],
                         constant HuffLookupTable1 & huffSymbolTable1 [[ buffer(2) ]],
                         const device HuffLookupSymbol *huffSymbolTable2 [[ buffer(3) ]],
-                        constant RenderPassDimensionsAndOffsetUniform &rtd [[ buffer(4) ]]
+                        constant RenderTargetDimensionsAndBlockDimensionsUniform & rtd [[ buffer(4) ]]
                         )
 {
-  ushort2 gid = calc_gid_from_frag_norm_coord(ushort2(rtd.width, rtd.height), in.textureCoordinate);
+  const ushort numWholeBlocksInWidth = rtd.blockWidth;
+  ushort2 gid = calc_gid_from_frag_norm_coord(ushort2(rtd.blockWidth, rtd.blockHeight), in.textureCoordinate);
 
   HuffFragmentOutput12 fragOut;
   
   // Calculate blocki in terms of the number of whole blocks in the output texture
   // where each pixel corresponds to one block.
   
-  const ushort numWholeBlocksInWidth = rtd.width;
   const int blocki = (int(gid.y) * numWholeBlocksInWidth) + gid.x;
   
   // Lookup the starting number of bits offset for each pixel in this block
@@ -372,17 +372,17 @@ huffFragmentShaderB8W16(RasterizerData in [[stage_in]],
                         const device uint8_t *huffBuff [[ buffer(1) ]],
                         constant HuffLookupTable1 & huffSymbolTable1 [[ buffer(2) ]],
                         const device HuffLookupSymbol *huffSymbolTable2 [[ buffer(3) ]],
-                        constant RenderPassDimensionsAndOffsetUniform &rtd [[ buffer(4) ]]
+                        constant RenderTargetDimensionsAndBlockDimensionsUniform & rtd [[ buffer(4) ]]
                         )
 {
-  ushort2 gid = calc_gid_from_frag_norm_coord(ushort2(rtd.width, rtd.height), in.textureCoordinate);
+  const ushort numWholeBlocksInWidth = rtd.blockWidth;
+  ushort2 gid = calc_gid_from_frag_norm_coord(ushort2(rtd.blockWidth, rtd.blockHeight), in.textureCoordinate);
   
   HuffFragmentOutput16 fragOut;
   
   // Calculate blocki in terms of the number of whole blocks in the output texture
   // where each pixel corresponds to one block.
   
-  const ushort numWholeBlocksInWidth = rtd.width;
   const int blocki = (int(gid.y) * numWholeBlocksInWidth) + gid.x;
   
   // Lookup the starting number of bits offset for each pixel in this block
@@ -450,7 +450,7 @@ huffFragmentShaderB8W16(RasterizerData in [[stage_in]],
 fragment half4
 cropAndGrayscaleFromTexturesFragmentShader(RasterizerData in [[stage_in]],
                                            texture2d<half, access::read> inTexture [[ texture(0) ]],
-                                           constant RenderTargetDimensionsAndBlockDimensionsUniform &rtd [[ buffer(0) ]])
+                                           constant RenderTargetDimensionsAndBlockDimensionsUniform & rtd [[ buffer(0) ]])
 {
   const ushort blockDim = BLOCK_DIM;
   

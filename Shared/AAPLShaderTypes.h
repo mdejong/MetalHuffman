@@ -68,6 +68,7 @@ typedef struct {
   uint8_t _dummy1;
 } RenderStepConst;
 
+/*
 typedef struct
 {
   uint16_t width;
@@ -83,6 +84,7 @@ typedef struct
   uint16_t offset;
   uint16_t _dummy;
 } RenderPassDimensionsAndOffsetUniform;
+*/
 
 typedef struct
 {
