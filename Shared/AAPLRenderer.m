@@ -432,8 +432,8 @@ const static unsigned int blockDim = BLOCK_DIM;
 
       //HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
       //HuffRenderFrameConfig hcfg = TEST_IMAGE1;
-      HuffRenderFrameConfig hcfg = TEST_IMAGE2;
-      //HuffRenderFrameConfig hcfg = TEST_IMAGE3;
+      //HuffRenderFrameConfig hcfg = TEST_IMAGE2;
+      HuffRenderFrameConfig hcfg = TEST_IMAGE3;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
