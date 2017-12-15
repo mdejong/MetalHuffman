@@ -20,7 +20,12 @@ typedef struct {
 // Generate values for lookup table
 
 + (void) generateLookupTable:(HuffLookupSymbol*)lookupTablePtr
-             lookupTableSize:(const int)lookupTableSize;
+       lookupTableNumEntries:(const int)lookupTableNumEntries;
+
++ (void) generateSplitLookupTables:(const int)table1NumBits
+                     table2NumBits:(const int)table2NumBits
+                            table1:(NSMutableData*)table1
+                            table2:(NSMutableData*)table2;
 
 // Unoptimized serial decode logic. Note that this logic
 // assumes that huffBuff contains +2 bytes at the end
@@ -32,6 +37,27 @@ typedef struct {
                  huffBuffN:(int)huffBuffN
                  outBuffer:(uint8_t*)outBuffer
             bitOffsetTable:(uint32_t*)bitOffsetTable;
+
+// Unoptimized logic that decodes from a pair of tables
+// where the first table should contain the vast majority
+// of the symbols and the second table is read and used
+// only when needed.
+
+#define DecodeHuffmanBitsFromTablesCompareToOriginal
+
++ (void) decodeHuffmanBitsFromTables:(HuffLookupSymbol*)huffSymbolTable1
+                    huffSymbolTable2:(HuffLookupSymbol*)huffSymbolTable2
+                        table1BitNum:(const int)table1BitNum
+                        table2BitNum:(const int)table2BitNum
+                  numSymbolsToDecode:(int)numSymbolsToDecode
+                            huffBuff:(uint8_t*)huffBuff
+                           huffBuffN:(int)huffBuffN
+                           outBuffer:(uint8_t*)outBuffer
+                      bitOffsetTable:(uint32_t*)bitOffsetTable
+#if defined(DecodeHuffmanBitsFromTablesCompareToOriginal)
+                       originalBytes:(uint8_t*)originalBytes
+#endif // DecodeHuffmanBitsFromTablesCompareToOriginal
+;
 
 // Given an input buffer, huffman encode the input values and generate
 // output that corresponds to

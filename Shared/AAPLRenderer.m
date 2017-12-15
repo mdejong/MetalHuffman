@@ -39,7 +39,47 @@ const static unsigned int blockDim = BLOCK_DIM;
     id <MTLDevice> _device;
 
   // Our compute pipeline composed of our kernal defined in the .metal shader file
-  id <MTLComputePipelineState> _computePipelineState;
+  //id <MTLComputePipelineState> _computePipelineState;
+  
+  // 12 and 16 symbol render pipelines
+  id<MTLRenderPipelineState> _render12PipelineState;
+  id<MTLRenderPipelineState> _render16PipelineState;
+  
+  // The Metal textures that will hold fragment shader output
+
+  id<MTLTexture> _render12Zeros;
+  
+  id<MTLTexture> _render12C0R0;
+  id<MTLTexture> _render12C1R0;
+  id<MTLTexture> _render12C2R0;
+  id<MTLTexture> _render12C3R0;
+  
+  id<MTLTexture> _render12C0R1;
+  id<MTLTexture> _render12C1R1;
+  id<MTLTexture> _render12C2R1;
+  id<MTLTexture> _render12C3R1;
+  
+  id<MTLTexture> _render12C0R2;
+  id<MTLTexture> _render12C1R2;
+  id<MTLTexture> _render12C2R2;
+  id<MTLTexture> _render12C3R2;
+  
+  id<MTLTexture> _render12C0R3;
+  id<MTLTexture> _render12C1R3;
+  id<MTLTexture> _render12C2R3;
+  id<MTLTexture> _render12C3R3;
+
+  id<MTLTexture> _render16C0;
+  id<MTLTexture> _render16C1;
+  id<MTLTexture> _render16C2;
+  id<MTLTexture> _render16C3;
+  
+  // This texture will contain the output of each symbol
+  // render above with a "slice" that is the height of one
+  // of the render textures. The results will all be blitted
+  // into this texture at known offsets that indicate a "slice".
+  
+  id<MTLTexture> _renderCombinedSlices;
   
   // Render size at original width and height in terms of blocks
   MTLSize _threadgroupSize;
@@ -63,14 +103,18 @@ const static unsigned int blockDim = BLOCK_DIM;
   
     CVPixelBufferRef _render_cv_buffer;
     id<MTLTexture> _render_texture;
-
-    id<MTLTexture> _render_block_padded_texture;
   
     // The Metal buffer in which we store our vertex data
     id<MTLBuffer> _vertices;
 
     // The Metal buffer that will hold render dimensions
-    id<MTLBuffer> _renderTargetDimensions;
+    id<MTLBuffer> _renderTargetDimensionsAndBlockDimensionsUniform;
+  
+  id<MTLBuffer> _rt0;
+  id<MTLBuffer> _rt1;
+  id<MTLBuffer> _rt2;
+  id<MTLBuffer> _rt3;
+  id<MTLBuffer> _rt4;
   
   // The Metal buffer stores the number of bits into the
   // huffman codes buffer where the symbol at a given
@@ -83,7 +127,8 @@ const static unsigned int blockDim = BLOCK_DIM;
   id<MTLBuffer> _huffBuff;
 
   // The Metal buffer where huffman symbol lookup table is stored
-  id<MTLBuffer> _huffSymbolTable;
+  id<MTLBuffer> _huffSymbolTable1;
+  id<MTLBuffer> _huffSymbolTable2;
   
     // The number of vertices in our vertex buffer
     NSUInteger _numVertices;
@@ -376,9 +421,19 @@ const static unsigned int blockDim = BLOCK_DIM;
 //      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_6x4_NOT_SQUARE;
-//      HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
-//      HuffRenderFrameConfig hcfg = TEST_IMAGE1;
+//      HuffRenderFrameConfig hcfg = TEST_8x8_IDENT;
+//      HuffRenderFrameConfig hcfg = TEST_16x8_IDENT;
+//      HuffRenderFrameConfig hcfg = TEST_16x16_IDENT;
+//      HuffRenderFrameConfig hcfg = TEST_16x16_IDENT2;
+//      HuffRenderFrameConfig hcfg = TEST_16x16_IDENT3;
+      
+//        HuffRenderFrameConfig hcfg = TEST_8x8_IDENT_2048;
+//        HuffRenderFrameConfig hcfg = TEST_8x8_IDENT_4096;
+
+      //HuffRenderFrameConfig hcfg = TEST_LARGE_RANDOM;
+      //HuffRenderFrameConfig hcfg = TEST_IMAGE1;
       HuffRenderFrameConfig hcfg = TEST_IMAGE2;
+      //HuffRenderFrameConfig hcfg = TEST_IMAGE3;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
@@ -406,22 +461,34 @@ const static unsigned int blockDim = BLOCK_DIM;
       self->renderBlockWidth = blockWidth;
       self->renderBlockHeight = blockHeight;
       
-      _renderTargetDimensions = [_device newBufferWithLength:sizeof(RenderTargetDimensionsUniform)
+      _renderTargetDimensionsAndBlockDimensionsUniform = [_device newBufferWithLength:sizeof(RenderTargetDimensionsAndBlockDimensionsUniform)
                                                      options:MTLResourceStorageModeShared];
       
-      RenderTargetDimensionsUniform *ptr = _renderTargetDimensions.contents;
-      ptr->width = width;
-      ptr->height = height;
+      {
+        RenderTargetDimensionsAndBlockDimensionsUniform *ptr = _renderTargetDimensionsAndBlockDimensionsUniform.contents;
+        ptr->width = width;
+        ptr->height = height;
+        ptr->blockWidth = blockWidth;
+        ptr->blockHeight = blockHeight;
+      }
+      
+      {
+        // 4 renders of 12 and 1 of 16
+
+        _rt0 = [_device newBufferWithLength:sizeof(RenderPassDimensionsAndOffsetUniform)
+                                    options:MTLResourceStorageModeShared];
+        _rt1 = [_device newBufferWithLength:sizeof(RenderPassDimensionsAndOffsetUniform)
+                                    options:MTLResourceStorageModeShared];
+        _rt2 = [_device newBufferWithLength:sizeof(RenderPassDimensionsAndOffsetUniform)
+                                    options:MTLResourceStorageModeShared];
+        _rt3 = [_device newBufferWithLength:sizeof(RenderPassDimensionsAndOffsetUniform)
+                                    options:MTLResourceStorageModeShared];
+        _rt4 = [_device newBufferWithLength:sizeof(RenderPassDimensionsAndOffsetUniform)
+                                    options:MTLResourceStorageModeShared];
+      }
       
       _render_texture = [self makeBGRACoreVideoTexture:CGSizeMake(width,height)
                                     cvPixelBufferRefPtr:&_render_cv_buffer];
-      
-      // One render pass processed 1/(N*N) the number of total blocks, note that this output
-      // texture is byte oriented, not 32 bit pixels.
-      
-      //_render_block_padded_texture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
-      
-      _render_block_padded_texture = [self make8bitTexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) bytes:NULL];
       
       // Debug capture textures, these are same dimensions as _render_pass
       
@@ -434,6 +501,53 @@ const static unsigned int blockDim = BLOCK_DIM;
       renderFrame.debugSymbolsTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
       renderFrame.debugCoordsTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
 #endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
+
+      // Render stages
+      
+      if ((1)) {
+        // Dummy input that is all zeros
+        _render12Zeros = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        
+        _render12C0R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render12C1R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render12C2R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render12C3R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+
+        _render12C0R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render12C1R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render12C2R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render12C3R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+
+        _render12C0R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render12C1R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render12C2R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render12C3R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+
+        _render12C0R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render12C1R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render12C2R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render12C3R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+
+        _render16C0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render16C1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render16C2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+        _render16C3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+
+        // Render into texture that is a multiple of (blockWidth, blockHeight)
+        
+        int combinedNumElemsWidth = 4096 / 512;
+        int maxLineWidth = blockWidth * combinedNumElemsWidth;
+        
+        int combinedNumElemsHeight = (blockWidth * 16) / maxLineWidth;
+        if (((blockWidth * 16) % maxLineWidth) != 0) {
+          combinedNumElemsHeight++;
+        }
+
+        int combinedWidth = blockWidth * combinedNumElemsWidth;
+        int combinedHeight = blockHeight * combinedNumElemsHeight;
+        
+        _renderCombinedSlices = [self makeBGRATexture:CGSizeMake(combinedWidth, combinedHeight) pixels:NULL];
+      }
       
         // Set up a simple MTLBuffer with our vertices which include texture coordinates
       
@@ -472,21 +586,71 @@ const static unsigned int blockDim = BLOCK_DIM;
       // Load all the shader files with a metal file extension in the project
       id<MTLLibrary> defaultLibrary = [_device newDefaultLibrary];
 
-      id <MTLFunction> kernelFunction = [defaultLibrary newFunctionWithName:@"huffComputeKernel"];
-      
-      _computePipelineState = [_device newComputePipelineStateWithFunction:kernelFunction
-                                                                     error:&error];
-
-      if(!_computePipelineState)
       {
-        // Compute pipeline State creation could fail if kernelFunction failed to load from the
-        //   library.  If the Metal API validation is enabled, we automatically be given more
-        //   information about what went wrong.  (Metal API validation is enabled by default
-        //   when a debug build is run from Xcode)
-        NSLog(@"Failed to create compute pipeline state, error %@", error);
-        return nil;
+        // Load the vertex function from the library
+        id <MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
+        
+        id <MTLFunction> fragmentFunction = [defaultLibrary newFunctionWithName:@"huffFragmentShaderB8W12"];
+        assert(fragmentFunction);
+        
+        // Set up a descriptor for creating a pipeline state object
+        MTLRenderPipelineDescriptor *pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
+        pipelineStateDescriptor.label = @"Huffman Decode 12 Pipeline";
+        pipelineStateDescriptor.vertexFunction = vertexFunction;
+        pipelineStateDescriptor.fragmentFunction = fragmentFunction;
+        
+        pipelineStateDescriptor.colorAttachments[0].pixelFormat = mtkView.colorPixelFormat;
+        pipelineStateDescriptor.colorAttachments[1].pixelFormat = mtkView.colorPixelFormat;
+        pipelineStateDescriptor.colorAttachments[2].pixelFormat = mtkView.colorPixelFormat;
+        pipelineStateDescriptor.colorAttachments[3].pixelFormat = mtkView.colorPixelFormat;
+        
+        //pipelineStateDescriptor.stencilAttachmentPixelFormat =  mtkView.depthStencilPixelFormat; // MTLPixelFormatStencil8
+        
+        _render12PipelineState = [_device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
+                                                                                  error:&error];
+        if (!_render12PipelineState)
+        {
+          // Pipeline State creation could fail if we haven't properly set up our pipeline descriptor.
+          //  If the Metal API validation is enabled, we can find out more information about what
+          //  went wrong.  (Metal API validation is enabled by default when a debug build is run
+          //  from Xcode)
+          NSLog(@"Failed to created pipeline state, error %@", error);
+        }
       }
-      
+
+      {
+        // Load the vertex function from the library
+        id <MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
+        assert(vertexFunction);
+        
+        id <MTLFunction> fragmentFunction = [defaultLibrary newFunctionWithName:@"huffFragmentShaderB8W16"];
+        assert(fragmentFunction);
+        
+        // Set up a descriptor for creating a pipeline state object
+        MTLRenderPipelineDescriptor *pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
+        pipelineStateDescriptor.label = @"Huffman Decode 16 Pipeline";
+        pipelineStateDescriptor.vertexFunction = vertexFunction;
+        pipelineStateDescriptor.fragmentFunction = fragmentFunction;
+        
+        pipelineStateDescriptor.colorAttachments[0].pixelFormat = mtkView.colorPixelFormat;
+        pipelineStateDescriptor.colorAttachments[1].pixelFormat = mtkView.colorPixelFormat;
+        pipelineStateDescriptor.colorAttachments[2].pixelFormat = mtkView.colorPixelFormat;
+        pipelineStateDescriptor.colorAttachments[3].pixelFormat = mtkView.colorPixelFormat;
+        
+        //pipelineStateDescriptor.stencilAttachmentPixelFormat =  mtkView.depthStencilPixelFormat; // MTLPixelFormatStencil8
+        
+        _render16PipelineState = [_device newRenderPipelineStateWithDescriptor:pipelineStateDescriptor
+                                                                         error:&error];
+        if (!_render16PipelineState)
+        {
+          // Pipeline State creation could fail if we haven't properly set up our pipeline descriptor.
+          //  If the Metal API validation is enabled, we can find out more information about what
+          //  went wrong.  (Metal API validation is enabled by default when a debug build is run
+          //  from Xcode)
+          NSLog(@"Failed to created pipeline state, error %@", error);
+        }
+      }
+
       // The kernel's render size is in terms of blocks where each pixel in each
       // block is represented.
 
@@ -506,8 +670,9 @@ const static unsigned int blockDim = BLOCK_DIM;
       
       [self.class calculateThreadgroup:renderSize blockDim:1 sizePtr:&_threadgroupRenderPassSize countPtr:&_threadgroupRenderPassCount];
       
-        /// Create our render pipeline
-
+      {
+        // Render to texture pipeline
+        
         // Load the vertex function from the library
         id <MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
 
@@ -534,13 +699,15 @@ const static unsigned int blockDim = BLOCK_DIM;
           NSLog(@"Failed to created pipeline state, error %@", error);
         }
       }
+      }
       
       {
         // Load the vertex function from the library
         id <MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
         
         // Load the fragment function from the library
-        id <MTLFunction> fragmentFunction = [defaultLibrary newFunctionWithName:@"samplingCropShader"];
+        
+        id <MTLFunction> fragmentFunction = [defaultLibrary newFunctionWithName:@"cropAndGrayscaleFromTexturesFragmentShader"];
         assert(fragmentFunction);
         
         // Set up a descriptor for creating a pipeline state object
@@ -664,27 +831,27 @@ const static unsigned int blockDim = BLOCK_DIM;
       if ((1)) {
         // byte deltas
         
-        NSMutableArray *mRows = [NSMutableArray array];
+        NSMutableArray *mBlocks = [NSMutableArray array];
         
         for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
           NSMutableData *mRowData = [NSMutableData data];
           uint8_t *blockStartPtr = outBlockOrderSymbolsPtr + (blocki * (blockDim * blockDim));
           [mRowData appendBytes:blockStartPtr length:(blockDim * blockDim)];
-          [mRows addObject:mRowData];
+          [mBlocks addObject:mRowData];
         }
         
         // Convert blocks to deltas
         
         NSMutableArray *mRowsOfDeltas = [NSMutableArray array];
         
-        for ( NSData *rowData in mRows ) {
-          NSData *deltasData = [Huffman encodeSignedByteDeltas:rowData];
+        for ( NSData *blockData in mBlocks ) {
+          NSData *deltasData = [Huffman encodeSignedByteDeltas:blockData];
           [mRowsOfDeltas addObject:deltasData];
           
 #if defined(DEBUG)
           // Check that decoding generates the original input
           NSData *decodedDeltas = [Huffman decodeSignedByteDeltas:deltasData];
-          NSAssert([decodedDeltas isEqualToData:rowData], @"decoded deltas");
+          NSAssert([decodedDeltas isEqualToData:blockData], @"decoded deltas");
 #endif // DEBUG
         }
         
@@ -777,19 +944,75 @@ const static unsigned int blockDim = BLOCK_DIM;
     
     fprintf(stdout, "done encodedSymbols\n");
   }
-      
-  // FIXME: set _iter offsets so that the starting bit offset for each block is initialized
-  // as a 16 bit value correctly
-  
-  const int maxTableSize = 0xFFFF + 1;
-  
-  _huffSymbolTable = [_device newBufferWithLength:maxTableSize*sizeof(HuffLookupSymbol)
-                                   options:MTLResourceStorageModeShared];
-  
-  HuffLookupSymbol *codeLookupTablePtr = (HuffLookupSymbol *) _huffSymbolTable.contents;
-  assert(codeLookupTablePtr);
-  
-  [Huffman generateLookupTable:codeLookupTablePtr lookupTableSize:maxTableSize];
+
+      {
+        const int table1BitNum = HUFF_TABLE1_NUM_BITS;
+        const int table2BitNum = HUFF_TABLE2_NUM_BITS;
+        
+        NSMutableData *table1 = [NSMutableData data];
+        NSMutableData *table2 = [NSMutableData data];
+        
+        [Huffman generateSplitLookupTables:table1BitNum
+                             table2NumBits:table2BitNum
+                                    table1:table1
+                                    table2:table2];
+        
+        // Invoke split table decoding logic to check that the generated tables
+        // can be read to regenerate the original input.
+        
+#if defined(DEBUG)
+        
+        HuffLookupSymbol *codeLookupTablePtr1 = (HuffLookupSymbol *) table1.bytes;
+        assert(codeLookupTablePtr1);
+        HuffLookupSymbol *codeLookupTablePtr2 = (HuffLookupSymbol *) table2.bytes;
+        assert(codeLookupTablePtr1);
+        
+        NSMutableData *mDecodedBlockOrderSymbols = [NSMutableData data];
+        [mDecodedBlockOrderSymbols setLength:outBlockOrderSymbolsNumBytes];
+        uint8_t *decodedBlockOrderSymbolsPtr = (uint8_t *) mDecodedBlockOrderSymbols.mutableBytes;
+        
+        uint8_t *huffSymbolsWithPadding = (uint8_t *) _huffBuff.contents;
+        int huffSymbolsWithPaddingNumBytes = encodedSymbolsNumBytes;
+        
+        NSMutableData *mDecodedBitOffsetData = [NSMutableData data];
+        [mDecodedBitOffsetData setLength:(outBlockOrderSymbolsNumBytes * sizeof(uint32_t))];
+        uint32_t *decodedBitOffsetPtr = (uint32_t *) mDecodedBitOffsetData.mutableBytes;
+        
+        [Huffman decodeHuffmanBitsFromTables:codeLookupTablePtr1
+                            huffSymbolTable2:codeLookupTablePtr2
+                                table1BitNum:table1BitNum
+                                table2BitNum:table2BitNum
+                          numSymbolsToDecode:outBlockOrderSymbolsNumBytes
+                                    huffBuff:huffSymbolsWithPadding
+                                   huffBuffN:huffSymbolsWithPaddingNumBytes
+                                   outBuffer:decodedBlockOrderSymbolsPtr
+                              bitOffsetTable:decodedBitOffsetPtr
+#if defined(DecodeHuffmanBitsFromTablesCompareToOriginal)
+                               originalBytes:outBlockOrderSymbolsPtr
+#endif // DecodeHuffmanBitsFromTablesCompareToOriginal
+         ];
+        
+        int cmp = memcmp(decodedBlockOrderSymbolsPtr, outBlockOrderSymbolsPtr, outBlockOrderSymbolsNumBytes);
+        assert(cmp == 0);
+#endif // DEBUG
+        
+        // Allocate Metal buffers that hold symbol table 1 and 2
+        
+        const int table1Size = pow(2, table1BitNum);
+        const int table2Size = (int)table2.length / sizeof(HuffLookupSymbol);
+        
+        _huffSymbolTable1 = [_device newBufferWithLength:table1Size*sizeof(HuffLookupSymbol)
+                                                 options:MTLResourceStorageModeShared];
+        
+        _huffSymbolTable2 = [_device newBufferWithLength:table2Size*sizeof(HuffLookupSymbol)
+                                                 options:MTLResourceStorageModeShared];
+        
+        assert(_huffSymbolTable1.length == table1.length);
+        assert(_huffSymbolTable2.length == table2.length);
+        
+        memcpy(_huffSymbolTable1.contents, table1.bytes, table1.length);
+        memcpy(_huffSymbolTable2.contents, table2.bytes, table2.length);
+      }
   
   // Init memory buffer that holds bit offsets for each block
 
@@ -807,48 +1030,32 @@ const static unsigned int blockDim = BLOCK_DIM;
 #endif // DEBUG
         }
       }
-  
-  // Decode the generated huffman stream one at a time to make sure nothing went wrong
-  // at the most basic encode/decode stage.
-  
-#if defined(DEBUG)
-      NSMutableData *mDecodedBlockOrderSymbols = [NSMutableData data];
-      [mDecodedBlockOrderSymbols setLength:outBlockOrderSymbolsNumBytes];
-      uint8_t *decodedBlockOrderSymbolsPtr = (uint8_t *) mDecodedBlockOrderSymbols.mutableBytes;
       
-      uint8_t *huffSymbolsWithPadding = (uint8_t *) _huffBuff.contents;
-      int huffSymbolsWithPaddingNumBytes = encodedSymbolsNumBytes;
+      // Zero out pixels
       
-      NSMutableData *mDecodedBitOffsetData = [NSMutableData data];
-      [mDecodedBitOffsetData setLength:(outBlockOrderSymbolsNumBytes * sizeof(uint32_t))];
-      uint32_t *decodedBitOffsetPtr = (uint32_t *) mDecodedBitOffsetData.mutableBytes;
-      
-      [Huffman decodeHuffmanBits:codeLookupTablePtr
-              numSymbolsToDecode:outBlockOrderSymbolsNumBytes
-                        huffBuff:huffSymbolsWithPadding
-                       huffBuffN:huffSymbolsWithPaddingNumBytes
-                       outBuffer:decodedBlockOrderSymbolsPtr
-                  bitOffsetTable:decodedBitOffsetPtr];
-
-      // FIXME: copy decoded bit widths for each position, can be determined by offsets
-      
-      // Check that decoded block order symbols matches input to huffman encoder
-      
-      for (int codei = 0; codei < outBlockOrderSymbolsNumBytes; codei++) {
-        uint8_t origCode = outBlockOrderSymbolsPtr[codei];
-        uint8_t decodedCode = decodedBlockOrderSymbolsPtr[codei];
+      if ((1))
+      {
+        uint32_t *pixels = malloc(_render12Zeros.width * _render12Zeros.height * sizeof(uint32_t));
         
-        if (decodedCode != origCode) {
-          printf("%3d != %3d for block huffman offset %d\n", decodedCode, origCode, codei);
-          assert(0);
-        } else {
-          //printf("match %3d for block huffman offset %d\n", decodedCode, codei);
+        memset(pixels, 0, _render12Zeros.width * _render12Zeros.height * sizeof(uint32_t));
+        
+        {
+          NSUInteger bytesPerRow = _render12Zeros.width * sizeof(uint32_t);
+          
+          MTLRegion region = {
+            { 0, 0, 0 },                   // MTLOrigin
+            {_render12Zeros.width, _render12Zeros.height, 1} // MTLSize
+          };
+          
+          // Copy the bytes from our data object into the texture
+          [_render12Zeros replaceRegion:region
+                            mipmapLevel:0
+                              withBytes:pixels
+                            bytesPerRow:bytesPerRow];
         }
+        
+        free(pixels);
       }
-      
-      int cmp = memcmp(decodedBlockOrderSymbolsPtr, outBlockOrderSymbolsPtr, outBlockOrderSymbolsNumBytes);
-      assert(cmp == 0);
-#endif // DEBUG
       
     } // end of init if block
   
@@ -886,6 +1093,59 @@ const static unsigned int blockDim = BLOCK_DIM;
   return [NSString stringWithString:mStr];
 }
 
+// Dump texture that contains a 4 byte values in each BGRA pixel
+
+- (void) dump4ByteTexture:(id<MTLTexture>)outTexture
+                    label:(NSString*)label
+{
+  // Copy texture data into debug framebuffer, note that this include 2x scale
+  
+  int width = (int) outTexture.width;
+  int height = (int) outTexture.height;
+  
+  NSData *pixelsData = [self.class getTexturePixels:outTexture];
+  uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
+  
+  // Dump output words as bytes
+  
+  if ((1)) {
+    fprintf(stdout, "%s\n", [label UTF8String]);
+    
+    // Dump output words as BGRA
+    
+    for ( int row = 0; row < height; row++ ) {
+      for ( int col = 0; col < width; col++ ) {
+        int offset = (row * width) + col;
+        uint32_t v = pixelsPtr[offset];
+        //fprintf(stdout, "%5d ", v);
+        fprintf(stdout, "0x%08X ", v);
+      }
+      fprintf(stdout, "\n");
+    }
+    
+    fprintf(stdout, "done\n");
+  }
+  
+  if ((1)) {
+    fprintf(stdout, "%s as bytes\n", [label UTF8String]);
+    
+    for ( int row = 0; row < height; row++ ) {
+      for ( int col = 0; col < width; col++ ) {
+        int offset = (row * width) + col;
+        uint32_t v = pixelsPtr[offset];
+        
+        for (int i = 0; i < 4; i++) {
+          uint32_t bVal = (v >> (i * 8)) & 0xFF;
+          fprintf(stdout, "%d ", bVal);
+        }
+      }
+      fprintf(stdout, "\n");
+    }
+    
+    fprintf(stdout, "done\n");
+  }
+}
+
 /// Called whenever the view needs to render a frame
 - (void)drawInMTKView:(nonnull MTKView *)view
 {
@@ -893,71 +1153,490 @@ const static unsigned int blockDim = BLOCK_DIM;
   
   id <MTLCommandBuffer> commandBuffer = [_commandQueue commandBuffer];
   commandBuffer.label = @"RenderBGRACommand";
-
+  
   // --------------------------------------------------------------------------
-  
-  // Possible: create a hard coded render step that reads from the previous
-  // pixel to the left is (x > 0) && (arr[x-1] > 0) so that a previous
-  // render being done means that the number of bits is copied into next 16 bit slot.
-  // Might also just have 63 render cycles hard coded so that each is done and
-  // the offsets for each thing are constant and it moves the render along.
-  
-  // Compute shader
 
+  int blockWidth = self->renderBlockWidth;
+  int blockHeight = self->renderBlockHeight;
+  
+  // Render 0, write 12 symbols into 3 textures along with a bits consumed halfword
+  
   {
-    {
-    
-    id <MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
-    
-    [computeEncoder setComputePipelineState:_computePipelineState];
-    
-    // output texture
-    
-    [computeEncoder setTexture:_render_block_padded_texture
-                       atIndex:AAPLTexturePaddedOut];
-    
-#if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
-      // 4 more textures to debug decode state
+  MTLRenderPassDescriptor *huffRenderPassDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+  
+  if (huffRenderPassDescriptor != nil)
+  {
+    huffRenderPassDescriptor.colorAttachments[0].texture = _render12C0R0;
+    huffRenderPassDescriptor.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+    huffRenderPassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
 
-      [computeEncoder setTexture:self.huffRenderFrame.debugPixelBlockiTexture
-                         atIndex:AAPLTextureBlocki];
-      [computeEncoder setTexture:self.huffRenderFrame.debugRootBitOffsetTexture
-                         atIndex:AAPLTextureRootBitOffset];
-      [computeEncoder setTexture:self.huffRenderFrame.debugCurrentBitOffsetTexture
-                         atIndex:AAPLTextureCurrentBitOffset];
-      [computeEncoder setTexture:self.huffRenderFrame.debugBitWidthTexture
-                         atIndex:AAPLTextureBitWidth];
-      [computeEncoder setTexture:self.huffRenderFrame.debugBitPatternTexture
-                         atIndex:AAPLTextureBitPattern];
-      [computeEncoder setTexture:self.huffRenderFrame.debugSymbolsTexture
-                         atIndex:AAPLTextureSymbols];
-      [computeEncoder setTexture:self.huffRenderFrame.debugCoordsTexture
-                         atIndex:AAPLTextureCoords];
-#endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
+    huffRenderPassDescriptor.colorAttachments[1].texture = _render12C1R0;
+    huffRenderPassDescriptor.colorAttachments[1].loadAction = MTLLoadActionDontCare;
+    huffRenderPassDescriptor.colorAttachments[1].storeAction = MTLStoreActionStore;
+
+    huffRenderPassDescriptor.colorAttachments[2].texture = _render12C2R0;
+    huffRenderPassDescriptor.colorAttachments[2].loadAction = MTLLoadActionDontCare;
+    huffRenderPassDescriptor.colorAttachments[2].storeAction = MTLStoreActionStore;
+
+    huffRenderPassDescriptor.colorAttachments[3].texture = _render12C3R0;
+    huffRenderPassDescriptor.colorAttachments[3].loadAction = MTLLoadActionDontCare;
+    huffRenderPassDescriptor.colorAttachments[3].storeAction = MTLStoreActionStore;
     
-    [computeEncoder setBuffer:_blockStartBitOffsets
+    id <MTLRenderCommandEncoder> renderEncoder =
+    [commandBuffer renderCommandEncoderWithDescriptor:huffRenderPassDescriptor];
+    renderEncoder.label = @"Huff12R0";
+    
+    [renderEncoder pushDebugGroup: @"Huff12R0"];
+    
+    // Set the region of the drawable to which we'll draw.
+    
+    MTLViewport mtlvp = {0.0, 0.0, blockWidth, blockHeight, -1.0, 1.0 };
+    [renderEncoder setViewport:mtlvp];
+    
+    [renderEncoder setRenderPipelineState:_render12PipelineState];
+    
+    [renderEncoder setVertexBuffer:_vertices
+                            offset:0
+                           atIndex:AAPLVertexInputIndexVertices];
+    
+    [renderEncoder setFragmentTexture:_render12Zeros
+                              atIndex:0];
+    
+    [renderEncoder setFragmentBuffer:_blockStartBitOffsets
                        offset:0
-                      atIndex:AAPLComputeBlockStartBitOffsets];
+                      atIndex:0];
     
     // Read only buffer for huffman symbols and huffman lookup table
     
-    [computeEncoder setBuffer:_huffBuff
+    [renderEncoder setFragmentBuffer:_huffBuff
                        offset:0
-                      atIndex:AAPLComputeHuffBuff];
+                      atIndex:1];
     
-    [computeEncoder setBuffer:_huffSymbolTable
+    [renderEncoder setFragmentBuffer:_huffSymbolTable1
                        offset:0
-                      atIndex:AAPLComputeHuffSymbolTable];
+                      atIndex:2];
 
-    [computeEncoder dispatchThreadgroups:_threadgroupRenderPassCount
-                     threadsPerThreadgroup:_threadgroupRenderPassSize];
+    [renderEncoder setFragmentBuffer:_huffSymbolTable2
+                              offset:0
+                             atIndex:3];
+    {
+      RenderPassDimensionsAndOffsetUniform *ptr = _rt0.contents;
+      ptr->width = blockWidth;
+      ptr->height = blockHeight;
+      ptr->offset = 0;
+    }
     
-    [computeEncoder endEncoding];
+    [renderEncoder setFragmentBuffer:_rt0
+                              offset:0
+                             atIndex:4];
+
+    // Draw the 3 vertices of our triangle
+    [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
+                      vertexStart:0
+                      vertexCount:_numVertices];
     
+    [renderEncoder popDebugGroup]; // RenderToTexture
+    
+    [renderEncoder endEncoding];
+  }
+    
+  }
+
+  // Render 1, write 12 symbols into 3 textures along with a bits consumed halfword
+  
+  {
+    MTLRenderPassDescriptor *huffRenderPassDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+    
+    if (huffRenderPassDescriptor != nil)
+    {
+      huffRenderPassDescriptor.colorAttachments[0].texture = _render12C0R1;
+      huffRenderPassDescriptor.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
+      
+      huffRenderPassDescriptor.colorAttachments[1].texture = _render12C1R1;
+      huffRenderPassDescriptor.colorAttachments[1].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[1].storeAction = MTLStoreActionStore;
+      
+      huffRenderPassDescriptor.colorAttachments[2].texture = _render12C2R1;
+      huffRenderPassDescriptor.colorAttachments[2].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[2].storeAction = MTLStoreActionStore;
+      
+      huffRenderPassDescriptor.colorAttachments[3].texture = _render12C3R1;
+      huffRenderPassDescriptor.colorAttachments[3].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[3].storeAction = MTLStoreActionStore;
+      
+      id <MTLRenderCommandEncoder> renderEncoder =
+      [commandBuffer renderCommandEncoderWithDescriptor:huffRenderPassDescriptor];
+      renderEncoder.label = @"Huff12R1";
+      
+      [renderEncoder pushDebugGroup: @"Huff12R1"];
+      
+      // Set the region of the drawable to which we'll draw.
+      
+      MTLViewport mtlvp = {0.0, 0.0, blockWidth, blockHeight, -1.0, 1.0 };
+      [renderEncoder setViewport:mtlvp];
+      
+      [renderEncoder setRenderPipelineState:_render12PipelineState];
+      
+      [renderEncoder setVertexBuffer:_vertices
+                              offset:0
+                             atIndex:AAPLVertexInputIndexVertices];
+      
+      [renderEncoder setFragmentTexture:_render12C3R0
+                                atIndex:0];
+      
+      [renderEncoder setFragmentBuffer:_blockStartBitOffsets
+                                offset:0
+                               atIndex:0];
+      
+      // Read only buffer for huffman symbols and huffman lookup table
+      
+      [renderEncoder setFragmentBuffer:_huffBuff
+                                offset:0
+                               atIndex:1];
+      
+      [renderEncoder setFragmentBuffer:_huffSymbolTable1
+                                offset:0
+                               atIndex:2];
+      
+      [renderEncoder setFragmentBuffer:_huffSymbolTable2
+                                offset:0
+                               atIndex:3];
+      {
+        RenderPassDimensionsAndOffsetUniform *ptr = _rt1.contents;
+        ptr->width = blockWidth;
+        ptr->height = blockHeight;
+        ptr->offset = 1;
+      }
+      
+      [renderEncoder setFragmentBuffer:_rt1
+                                offset:0
+                               atIndex:4];
+      
+      // Draw the 3 vertices of our triangle
+      [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
+                        vertexStart:0
+                        vertexCount:_numVertices];
+      
+      [renderEncoder popDebugGroup]; // RenderToTexture
+      
+      [renderEncoder endEncoding];
+    }
+  }
+
+  // render 2
+  
+  {
+    MTLRenderPassDescriptor *huffRenderPassDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+    
+    if (huffRenderPassDescriptor != nil)
+    {
+      huffRenderPassDescriptor.colorAttachments[0].texture = _render12C0R2;
+      huffRenderPassDescriptor.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
+      
+      huffRenderPassDescriptor.colorAttachments[1].texture = _render12C1R2;
+      huffRenderPassDescriptor.colorAttachments[1].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[1].storeAction = MTLStoreActionStore;
+      
+      huffRenderPassDescriptor.colorAttachments[2].texture = _render12C2R2;
+      huffRenderPassDescriptor.colorAttachments[2].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[2].storeAction = MTLStoreActionStore;
+      
+      huffRenderPassDescriptor.colorAttachments[3].texture = _render12C3R2;
+      huffRenderPassDescriptor.colorAttachments[3].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[3].storeAction = MTLStoreActionStore;
+      
+      id <MTLRenderCommandEncoder> renderEncoder =
+      [commandBuffer renderCommandEncoderWithDescriptor:huffRenderPassDescriptor];
+      renderEncoder.label = @"Huff12R2";
+      
+      [renderEncoder pushDebugGroup: @"Huff12R2"];
+      
+      // Set the region of the drawable to which we'll draw.
+      
+      MTLViewport mtlvp = {0.0, 0.0, blockWidth, blockHeight, -1.0, 1.0 };
+      [renderEncoder setViewport:mtlvp];
+      
+      [renderEncoder setRenderPipelineState:_render12PipelineState];
+      
+      [renderEncoder setVertexBuffer:_vertices
+                              offset:0
+                             atIndex:AAPLVertexInputIndexVertices];
+      
+      [renderEncoder setFragmentTexture:_render12C3R1
+                                atIndex:0];
+      
+      [renderEncoder setFragmentBuffer:_blockStartBitOffsets
+                                offset:0
+                               atIndex:0];
+      
+      // Read only buffer for huffman symbols and huffman lookup table
+      
+      [renderEncoder setFragmentBuffer:_huffBuff
+                                offset:0
+                               atIndex:1];
+      
+      [renderEncoder setFragmentBuffer:_huffSymbolTable1
+                                offset:0
+                               atIndex:2];
+      
+      [renderEncoder setFragmentBuffer:_huffSymbolTable2
+                                offset:0
+                               atIndex:3];
+
+      {
+        RenderPassDimensionsAndOffsetUniform *ptr = _rt2.contents;
+        ptr->width = blockWidth;
+        ptr->height = blockHeight;
+        ptr->offset = 2;
+      }
+      
+      [renderEncoder setFragmentBuffer:_rt2
+                                offset:0
+                               atIndex:4];
+      
+      // Draw the 3 vertices of our triangle
+      [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
+                        vertexStart:0
+                        vertexCount:_numVertices];
+      
+      [renderEncoder popDebugGroup]; // RenderToTexture
+      
+      [renderEncoder endEncoding];
+    }
+  }
+
+  // render 3
+  
+  {
+    MTLRenderPassDescriptor *huffRenderPassDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+    
+    if (huffRenderPassDescriptor != nil)
+    {
+      huffRenderPassDescriptor.colorAttachments[0].texture = _render12C0R3;
+      huffRenderPassDescriptor.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
+      
+      huffRenderPassDescriptor.colorAttachments[1].texture = _render12C1R3;
+      huffRenderPassDescriptor.colorAttachments[1].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[1].storeAction = MTLStoreActionStore;
+      
+      huffRenderPassDescriptor.colorAttachments[2].texture = _render12C2R3;
+      huffRenderPassDescriptor.colorAttachments[2].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[2].storeAction = MTLStoreActionStore;
+      
+      huffRenderPassDescriptor.colorAttachments[3].texture = _render12C3R3;
+      huffRenderPassDescriptor.colorAttachments[3].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[3].storeAction = MTLStoreActionStore;
+      
+      id <MTLRenderCommandEncoder> renderEncoder =
+      [commandBuffer renderCommandEncoderWithDescriptor:huffRenderPassDescriptor];
+      renderEncoder.label = @"Huff12R3";
+      
+      [renderEncoder pushDebugGroup: @"Huff12R3"];
+      
+      // Set the region of the drawable to which we'll draw.
+      
+      MTLViewport mtlvp = {0.0, 0.0, blockWidth, blockHeight, -1.0, 1.0 };
+      [renderEncoder setViewport:mtlvp];
+      
+      [renderEncoder setRenderPipelineState:_render12PipelineState];
+      
+      [renderEncoder setVertexBuffer:_vertices
+                              offset:0
+                             atIndex:AAPLVertexInputIndexVertices];
+      
+      [renderEncoder setFragmentTexture:_render12C3R2
+                                atIndex:0];
+      
+      [renderEncoder setFragmentBuffer:_blockStartBitOffsets
+                                offset:0
+                               atIndex:0];
+      
+      // Read only buffer for huffman symbols and huffman lookup table
+      
+      [renderEncoder setFragmentBuffer:_huffBuff
+                                offset:0
+                               atIndex:1];
+      
+      [renderEncoder setFragmentBuffer:_huffSymbolTable1
+                                offset:0
+                               atIndex:2];
+      
+      [renderEncoder setFragmentBuffer:_huffSymbolTable2
+                                offset:0
+                               atIndex:3];
+
+      {
+        RenderPassDimensionsAndOffsetUniform *ptr = _rt3.contents;
+        ptr->width = blockWidth;
+        ptr->height = blockHeight;
+        ptr->offset = 3;
+      }
+      
+      [renderEncoder setFragmentBuffer:_rt3
+                                offset:0
+                               atIndex:4];
+      
+      // Draw the 3 vertices of our triangle
+      [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
+                        vertexStart:0
+                        vertexCount:_numVertices];
+      
+      [renderEncoder popDebugGroup]; // RenderToTexture
+      
+      [renderEncoder endEncoding];
     }
   }
   
-  // Cropping copy operation from _render_block_padded_texture which is unsigned int values
+  // final render of 16 values
+  
+  {
+    MTLRenderPassDescriptor *huffRenderPassDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+    
+    if (huffRenderPassDescriptor != nil)
+    {
+      huffRenderPassDescriptor.colorAttachments[0].texture = _render16C0;
+      huffRenderPassDescriptor.colorAttachments[0].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
+      
+      huffRenderPassDescriptor.colorAttachments[1].texture = _render16C1;
+      huffRenderPassDescriptor.colorAttachments[1].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[1].storeAction = MTLStoreActionStore;
+      
+      huffRenderPassDescriptor.colorAttachments[2].texture = _render16C2;
+      huffRenderPassDescriptor.colorAttachments[2].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[2].storeAction = MTLStoreActionStore;
+      
+      huffRenderPassDescriptor.colorAttachments[3].texture = _render16C3;
+      huffRenderPassDescriptor.colorAttachments[3].loadAction = MTLLoadActionDontCare;
+      huffRenderPassDescriptor.colorAttachments[3].storeAction = MTLStoreActionStore;
+      
+      id <MTLRenderCommandEncoder> renderEncoder =
+      [commandBuffer renderCommandEncoderWithDescriptor:huffRenderPassDescriptor];
+      renderEncoder.label = @"Huff16R4";
+      
+      [renderEncoder pushDebugGroup: @"Huff16R4"];
+      
+      // Set the region of the drawable to which we'll draw.
+      
+      MTLViewport mtlvp = {0.0, 0.0, blockWidth, blockHeight, -1.0, 1.0 };
+      [renderEncoder setViewport:mtlvp];
+      
+      [renderEncoder setRenderPipelineState:_render16PipelineState];
+      
+      [renderEncoder setVertexBuffer:_vertices
+                              offset:0
+                             atIndex:AAPLVertexInputIndexVertices];
+      
+      [renderEncoder setFragmentTexture:_render12C3R3
+                                atIndex:0];
+      
+      [renderEncoder setFragmentBuffer:_blockStartBitOffsets
+                                offset:0
+                               atIndex:0];
+      
+      // Read only buffer for huffman symbols and huffman lookup table
+      
+      [renderEncoder setFragmentBuffer:_huffBuff
+                                offset:0
+                               atIndex:1];
+      
+      [renderEncoder setFragmentBuffer:_huffSymbolTable1
+                                offset:0
+                               atIndex:2];
+      
+      [renderEncoder setFragmentBuffer:_huffSymbolTable2
+                                offset:0
+                               atIndex:3];
+
+      {
+        RenderPassDimensionsAndOffsetUniform *ptr = _rt4.contents;
+        ptr->width = blockWidth;
+        ptr->height = blockHeight;
+        ptr->offset = 4; // ? what to pass here
+      }
+      
+      [renderEncoder setFragmentBuffer:_rt4
+                                offset:0
+                               atIndex:4];
+      
+      // Draw the 3 vertices of our triangle
+      [renderEncoder drawPrimitives:MTLPrimitiveTypeTriangle
+                        vertexStart:0
+                        vertexCount:_numVertices];
+      
+      [renderEncoder popDebugGroup]; // RenderToTexture
+      
+      [renderEncoder endEncoding];
+    }
+  }
+  
+  // blit the results from the previous shaders into a "slices" texture that is
+  // as tall as each block buffer.
+  
+  {
+    NSArray *inRenderedSymbolsTextures = @[
+                                           _render12C0R0,
+                                           _render12C1R0,
+                                           _render12C2R0,
+                                           _render12C0R1,
+                                           _render12C1R1,
+                                           _render12C2R1,
+                                           _render12C0R2,
+                                           _render12C1R2,
+                                           _render12C2R2,
+                                           _render12C0R3,
+                                           _render12C1R3,
+                                           _render12C2R3,
+                                           _render16C0,
+                                           _render16C1,
+                                           _render16C2,
+                                           _render16C3,
+                                           ];
+    
+    id<MTLBlitCommandEncoder> blitEncoder = [commandBuffer blitCommandEncoder];
+    
+    MTLSize inTxtSize = MTLSizeMake(blockWidth, blockHeight, 1);
+    MTLOrigin inTxtOrigin = MTLOriginMake(0, 0, 0);
+    
+    const int maxCol = 4096 / 512; // max 8 blocks in one row
+    
+    int outCol = 0;
+    int outRow = 0;
+    
+    int slice = 0;
+    for ( id<MTLTexture> blockTxt in inRenderedSymbolsTextures ) {
+      // Blit a block of pixels to (X,Y) location that is a multiple of (blockWidth,blockHeight)
+      MTLOrigin outTxtOrigin = MTLOriginMake(outCol * blockWidth, outRow * blockHeight, 0);
+      
+      [blitEncoder copyFromTexture:blockTxt
+                       sourceSlice:0
+                       sourceLevel:0
+                      sourceOrigin:inTxtOrigin
+                        sourceSize:inTxtSize
+                         toTexture:_renderCombinedSlices
+                  destinationSlice:0
+                  destinationLevel:0
+                 destinationOrigin:outTxtOrigin];
+      
+      //NSLog(@"blit for slice %2d : write to (%5d, %5d) %4d x %4d in _renderCombinedSlices", slice, (int)outTxtOrigin.x, (int)outTxtOrigin.y, (int)inTxtSize.width, (int)inTxtSize.height);
+      
+      slice += 1;
+      outCol += 1;
+      
+      if (outCol == maxCol) {
+        outCol = 0;
+        outRow += 1;
+      }
+    }
+    assert(slice == 16);
+    
+    [blitEncoder endEncoding];
+  }
+  
+  // Cropping copy operation from _renderToTexturePipelineState which is unsigned int values
   // to _render_texture which contains pixel values. This copy operation will expand single
   // byte values emitted by the huffman decoder as grayscale pixels.
 
@@ -986,10 +1665,10 @@ const static unsigned int blockDim = BLOCK_DIM;
                             offset:0
                            atIndex:AAPLVertexInputIndexVertices];
     
-    [renderEncoder setFragmentTexture:_render_block_padded_texture
+    [renderEncoder setFragmentTexture:_renderCombinedSlices
                               atIndex:0];
     
-    [renderEncoder setFragmentBuffer:_renderTargetDimensions
+    [renderEncoder setFragmentBuffer:_renderTargetDimensionsAndBlockDimensionsUniform
                               offset:0
                              atIndex:0];
     
@@ -1050,529 +1729,42 @@ const static unsigned int blockDim = BLOCK_DIM;
 
     // Print output of render pass in stages
     
-    const int assertOnValueDiff = 0;
+    const int assertOnValueDiff = 1;
     
-    // Debug stages from each render cycle
-    
-#if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
-    if (isCaptureRenderedTextureEnabled && self.huffRenderFrame.capture) {
-      // Query output texture
+    if (isCaptureRenderedTextureEnabled && 0) {
       
-      {
-        
-        // blocki
-        
-        {
-          id<MTLTexture> txt = self.huffRenderFrame.debugPixelBlockiTexture;
-          
-          NSData *pixelsData = [self.class getTexturePixels:txt];
-          
-          int width = (int) txt.width;
-          int height = (int) txt.height;
-          
-          // Dump output words as BGRA
-          
-          fprintf(stdout, "blocki output\n");
-          
-          if ((1)) {
-            // Dump 24 bit number
-            
-            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                int v = pixelsPtr[offset] & 0x00FFFFFF;
-                fprintf(stdout, "%5d ", v);
-              }
-              fprintf(stdout, "\n");
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-          
-          // Compare to expected blocki value
-          
-          {
-            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-            
-            NSData *expectedData = self.huffRenderFrame.expected_blocki;
-            uint32_t *expectedDataPtr = (uint32_t*) expectedData.bytes;
-            
-            assert(expectedData.length == pixelsData.length);
-
-            if ((1)) {
-              // Dump 24 bit output
-              fprintf(stdout, "(blocki)\n");
-              
-              for ( int row = 0; row < height; row++ ) {
-                for ( int col = 0; col < width; col++ ) {
-                  int offset = (row * width) + col;
-                  uint32_t pixel = pixelsPtr[offset];
-                  int blocki = pixel & 0xFFFFFF;
-                  uint32_t expectedPixel = expectedDataPtr[offset];
-                  int exBlocki = expectedPixel & 0xFFFFFF;
-                  fprintf(stdout, "%d ?= %d, ", blocki, exBlocki);
-                  
-                  if (blocki != exBlocki) {
-                    if (assertOnValueDiff) {
-                      assert(0);
-                    }
-                  }
-                }
-                fprintf(stdout, "\n");
-              }
-              
-              fprintf(stdout, "done\n");
-            }
-
-          }
-
-        }
-        
-        {
-          id<MTLTexture> txt = self.huffRenderFrame.debugRootBitOffsetTexture;
-          
-          NSData *pixelsData = [self.class getTexturePixels:txt];
-          
-          int width = (int) txt.width;
-          int height = (int) txt.height;
-          
-          // Dump output words as BGRA
-          
-          fprintf(stdout, "root bit offset\n");
-          
-          if ((1)) {
-            // Dump 24 bit number
-            
-            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                int v = pixelsPtr[offset] & 0x00FFFFFF;
-                fprintf(stdout, "%5d ", v);
-              }
-              fprintf(stdout, "\n");
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-          
-          uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-          
-          NSData *expectedData = self.huffRenderFrame.expected_rootBitOffset;
-          uint32_t *expectedDataPtr = (uint32_t*) expectedData.bytes;
-          
-          assert(expectedData.length == pixelsData.length);
-          
-          if ((1)) {
-            // Dump 24 bit output
-            fprintf(stdout, "(root bit offset)\n");
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                uint32_t pixel = pixelsPtr[offset];
-                int v = pixel & 0xFFFFFF;
-                uint32_t expectedPixel = expectedDataPtr[offset];
-                int exV = expectedPixel & 0xFFFFFF;
-                fprintf(stdout, "%5d ?= %5d, ", v, exV);
-                
-                if (v != exV) {
-                  if (assertOnValueDiff) {
-                    assert(0);
-                  }
-                }
-              }
-              fprintf(stdout, "\n");
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-
-        }
-        
-        {
-          id<MTLTexture> txt = self.huffRenderFrame.debugCurrentBitOffsetTexture;
-          
-          NSData *pixelsData = [self.class getTexturePixels:txt];
-          
-          int width = (int) txt.width;
-          int height = (int) txt.height;
-          
-          // Dump output words as BGRA
-          
-          fprintf(stdout, "current bit offset\n");
-          
-          if ((1)) {
-            // Dump 24 bit number
-            
-            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                int v = pixelsPtr[offset] & 0x00FFFFFF;
-                fprintf(stdout, "%5d ", v);
-              }
-              fprintf(stdout, "\n");
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-          
-          uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-          
-          NSData *expectedData = self.huffRenderFrame.expected_currentBitOffset;
-          uint32_t *expectedDataPtr = (uint32_t*) expectedData.bytes;
-          
-          assert(expectedData.length == pixelsData.length);
-          
-          if ((1)) {
-            // Dump 24 bit output
-            fprintf(stdout, "(current bit offset)\n");
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                uint32_t pixel = pixelsPtr[offset];
-                int v = pixel & 0xFFFFFF;
-                uint32_t expectedPixel = expectedDataPtr[offset];
-                int exV = expectedPixel & 0xFFFFFF;
-                fprintf(stdout, "%5d ?= %5d, ", v, exV);
-                
-                if (v != exV) {
-                  if (assertOnValueDiff) {
-                    assert(0);
-                  }
-                }
-              }
-              fprintf(stdout, "\n");
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-
-        }
-        
-        // bit width
-        
-        {
-          id<MTLTexture> txt = self.huffRenderFrame.debugBitWidthTexture;
-          
-          NSData *pixelsData = [self.class getTexturePixels:txt];
-          
-          int width = (int) txt.width;
-          int height = (int) txt.height;
-          
-          // Dump output words as BGRA
-          
-          fprintf(stdout, "current bit width\n");
-          
-          if ((1)) {
-            // Dump 24 bit number
-            
-            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                int v = pixelsPtr[offset] & 0x00FFFFFF;
-                fprintf(stdout, "%5d ", v);
-              }
-              fprintf(stdout, "\n");
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-          
-          uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-          
-          NSData *expectedData = self.huffRenderFrame.expected_bitWidth;
-          uint32_t *expectedDataPtr = (uint32_t*) expectedData.bytes;
-          
-          assert(expectedData.length == pixelsData.length);
-          
-          if ((1)) {
-            // Dump 24 bit output
-            fprintf(stdout, "(bit width)\n");
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                uint32_t pixel = pixelsPtr[offset];
-                int v = pixel & 0xFFFFFF;
-                uint32_t expectedPixel = expectedDataPtr[offset];
-                int exV = expectedPixel & 0xFFFFFF;
-                fprintf(stdout, "%5d ?= %5d, ", v, exV);
-                
-                if (v != exV) {
-                  if (assertOnValueDiff) {
-                    assert(0);
-                  }
-                }
-              }
-              fprintf(stdout, "\n");
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-        }
-
-        // symbol bit pattern
-        
-        {
-          id<MTLTexture> txt = self.huffRenderFrame.debugBitPatternTexture;
-          
-          NSData *pixelsData = [self.class getTexturePixels:txt];
-          
-          int width = (int) txt.width;
-          int height = (int) txt.height;
-          
-          // Dump output words as BGRA
-          
-          fprintf(stdout, "bit pattern\n");
-          
-          if ((1)) {
-            // Dump 24 bit number
-            
-            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                uint16_t code = pixelsPtr[offset] & 0x0000FFFF;
-
-                if ((1)) {
-                  fprintf(stdout, "\ncode 0x%04X\n", code);
-                }
-                
-                NSString *bitString = [self codeBitsAsString:code width:16];
-
-                fprintf(stdout, "%s ", [bitString UTF8String]);
-              }
-              fprintf(stdout, "\n");
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-          
-          
-          uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-          
-          NSData *expectedData = self.huffRenderFrame.expected_bitPattern;
-          uint32_t *expectedDataPtr = (uint32_t*) expectedData.bytes;
-          
-          assert(expectedData.length == pixelsData.length);
-          
-          if ((1)) {
-            // Dump 24 bit output
-            fprintf(stdout, "(bit pattern)\n");
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                uint32_t pixel = pixelsPtr[offset];
-                uint32_t expectedPixel = expectedDataPtr[offset];
-                
-                uint32_t code = pixel & 0xFFFFFF;
-                uint32_t exCode = expectedPixel & 0xFFFFFF;
-                
-                if (code != exCode) {
-                  NSString *bitString = [self codeBitsAsString:code width:16];
-                  NSString *expectedBitString = [self codeBitsAsString:exCode width:16];
-                  
-                  fprintf(stdout, "for (X,Y) (%5d, %5d) : %s != %s\n", col, row, [bitString UTF8String], [expectedBitString UTF8String]);
-                  if (assertOnValueDiff) {
-                    assert(0);
-                  }
-                }
-              }
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-        }
-        
-        // emitted symbol
-        
-        {
-          id<MTLTexture> txt = self.huffRenderFrame.debugSymbolsTexture;
-          
-          NSData *pixelsData = [self.class getTexturePixels:txt];
-          
-          int width = (int) txt.width;
-          int height = (int) txt.height;
-          
-          // Dump output words as BGRA
-          
-          fprintf(stdout, "rendered symbol\n");
-          
-          if ((1)) {
-            // Dump 24 bit number
-            
-            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                int v = pixelsPtr[offset] & 0x00FFFFFF;
-                fprintf(stdout, "%5d ", v);
-              }
-              fprintf(stdout, "\n");
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-          
-          uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-          
-          NSData *expectedData = self.huffRenderFrame.expected_symbols;
-          uint8_t *expectedDataPtr = (uint8_t*) expectedData.bytes;
-          
-          //assert(expectedData.length == pixelsData.length);
-          
-          if ((1)) {
-            // Dump 24 bit output
-            fprintf(stdout, "(symbols)\n");
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                uint32_t pixel = pixelsPtr[offset];
-                int v = pixel & 0xFFFFFF;
-                uint32_t expectedPixel = expectedDataPtr[offset];
-                int exV = expectedPixel & 0xFFFFFF;
-                fprintf(stdout, "%5d ?= %5d, ", v, exV);
-                fflush(stdout);
-                
-                if (v != exV) {
-                  if (assertOnValueDiff) {
-                    assert(0);
-                  }
-                }
-              }
-              fprintf(stdout, "\n");
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-        }
-        
-        // coords
-        
-        {
-          id<MTLTexture> txt = self.huffRenderFrame.debugCoordsTexture;
-          
-          NSData *pixelsData = [self.class getTexturePixels:txt];
-          
-          int width = (int) txt.width;
-          int height = (int) txt.height;
-          
-          // Dump output words as BGRA
-          
-          fprintf(stdout, "render coord\n");
-          
-          if ((1)) {
-            // FIXME: represent X,Y as 2 12 bit values
-            
-            // Dump (X,Y) from 16 bit output
-            
-            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-            
-            fprintf(stdout, "(X,Y)\n");
-            
-            for ( int row = 0; row < height; row++ ) {
-              for ( int col = 0; col < width; col++ ) {
-                int offset = (row * width) + col;
-                int X = (pixelsPtr[offset] >> 8) & 0xFF;
-                int Y = pixelsPtr[offset] & 0xFF;
-                fprintf(stdout, "(%2d %2d) ", X, Y);
-              }
-              fprintf(stdout, "\n");
-            }
-            
-            fprintf(stdout, "done\n");
-          }
-          
-          // Compare to expected
-          
-          {
-            uint32_t *pixelsPtr = ((uint32_t*) pixelsData.bytes);
-            
-            NSData *expectedData = self.huffRenderFrame.expected_coords;
-            uint32_t *expectedDataPtr = (uint32_t*) expectedData.bytes;
-            
-            assert(expectedData.length == pixelsData.length);
-            
-            if ((1)) {
-              fprintf(stdout, "(X,Y)\n");
-              
-              for ( int row = 0; row < height; row++ ) {
-                for ( int col = 0; col < width; col++ ) {
-                  int offset = (row * width) + col;
-                  uint32_t pixel = pixelsPtr[offset];
-                  int X = (pixel >> 8) & 0xFF;
-                  int Y = pixel & 0xFF;
-                  uint32_t expectedPixel = expectedDataPtr[offset];
-                  int exX = (expectedPixel >> 8) & 0xFF;
-                  int exY = expectedPixel & 0xFF;
-                  fprintf(stdout, "(%2d %2d) ?= (%2d %2d), ", X, Y, exX, exY);
-                  
-                  if ((X != exX) || (Y != exY)) {
-                    if (assertOnValueDiff) {
-                      assert(0);
-                    }
-                  }
-                }
-                fprintf(stdout, "\n");
-              }
-              
-              fprintf(stdout, "done\n");
-            }
-          }
-        }
-        
-      }
+      //[self dump4ByteTexture:_render12Zeros label:@"_render12Zeros"];
       
-      fprintf(stdout, "done all passes\n");
+      [self dump4ByteTexture:_render12C0R0 label:@"_render12C0R0"];
+      [self dump4ByteTexture:_render12C1R0 label:@"_render12C1R0"];
+      [self dump4ByteTexture:_render12C2R0 label:@"_render12C2R0"];
+      [self dump4ByteTexture:_render12C3R0 label:@"_render12C3R0 (bits used)"];
+      
+      [self dump4ByteTexture:_render12C0R1 label:@"_render12C0R1"];
+      [self dump4ByteTexture:_render12C1R1 label:@"_render12C1R1"];
+      [self dump4ByteTexture:_render12C2R1 label:@"_render12C2R1"];
+      [self dump4ByteTexture:_render12C3R1 label:@"_render12C3R1 (bits used)"];
+      
+      [self dump4ByteTexture:_render12C0R2 label:@"_render12C0R2"];
+      [self dump4ByteTexture:_render12C1R2 label:@"_render12C1R2"];
+      [self dump4ByteTexture:_render12C2R2 label:@"_render12C2R2"];
+      [self dump4ByteTexture:_render12C3R2 label:@"_render12C3R2 (bits used)"];
+      
+      [self dump4ByteTexture:_render12C0R2 label:@"_render12C0R3"];
+      [self dump4ByteTexture:_render12C1R2 label:@"_render12C1R3"];
+      [self dump4ByteTexture:_render12C2R2 label:@"_render12C2R3"];
+      [self dump4ByteTexture:_render12C3R2 label:@"_render12C3R3 (bits used)"];
+      
+      [self dump4ByteTexture:_render16C0 label:@"_render16C0"];
+      [self dump4ByteTexture:_render16C1 label:@"_render16C1"];
+      [self dump4ByteTexture:_render16C2 label:@"_render16C2"];
+      [self dump4ByteTexture:_render16C3 label:@"_render16C3"];
     }
-#endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
     
     // Output of block padded shader write operation
     
-    if (isCaptureRenderedTextureEnabled && self.huffRenderFrame.capture) {
-      // Query output texture
-      
-      id<MTLTexture> outTexture = _render_block_padded_texture;
-      
-      // Copy texture data into debug framebuffer, note that this include 2x scale
-      
-      int width = (int) outTexture.width;
-      int height = (int) outTexture.height;
-      
-      NSData *bytesData = [self.class getTextureBytes:outTexture];
-      uint8_t *bytesPtr = (uint8_t*) bytesData.bytes;
-      
-      // Dump output words as bytes
-      
-      if ((0)) {
-        fprintf(stdout, "_render_block_padded_texture\n");
-        
-        // Dump 24 bit values as int
-        
-        for ( int row = 0; row < height; row++ ) {
-          for ( int col = 0; col < width; col++ ) {
-            int offset = (row * width) + col;
-            int v = bytesPtr[offset] & 0xFF;
-            fprintf(stdout, "%5d ", v);
-          }
-          fprintf(stdout, "\n");
-        }
-        
-        fprintf(stdout, "done\n");
-      }      
+    if (isCaptureRenderedTextureEnabled && self.huffRenderFrame.capture && 0) {
+      [self dump4ByteTexture:_renderCombinedSlices label:@"_renderCombinedSlices"];
     }
     
     // Capture the render to texture state at the render to size
@@ -1599,9 +1791,11 @@ const static unsigned int blockDim = BLOCK_DIM;
         for ( int row = 0; row < height; row++ ) {
           for ( int col = 0; col < width; col++ ) {
             int offset = (row * width) + col;
-            uint32_t v = pixelsPtr[offset] & 0x00FFFFFF;
+            //uint32_t v = pixelsPtr[offset] & 0x00FFFFFF;
             //fprintf(stdout, "%5d ", v);
-            fprintf(stdout, "%6X ", v);
+            //fprintf(stdout, "%6X ", v);
+            uint32_t v = pixelsPtr[offset];
+            fprintf(stdout, "0x%08X ", v);
           }
           fprintf(stdout, "\n");
         }
@@ -1609,6 +1803,27 @@ const static unsigned int blockDim = BLOCK_DIM;
         fprintf(stdout, "done\n");
       }
 
+      if ((0)) {
+        // Dump 8bit B comp as int
+        
+        fprintf(stdout, "_render_texture\n");
+        
+        for ( int row = 0; row < height; row++ ) {
+          for ( int col = 0; col < width; col++ ) {
+            int offset = (row * width) + col;
+            //uint32_t v = pixelsPtr[offset] & 0x00FFFFFF;
+            //fprintf(stdout, "%5d ", v);
+            //fprintf(stdout, "%6X ", v);
+            uint32_t v = pixelsPtr[offset] & 0xFF;
+            //fprintf(stdout, "0x%08X ", v);
+            fprintf(stdout, "%3d ", v);
+          }
+          fprintf(stdout, "\n");
+        }
+        
+        fprintf(stdout, "done\n");
+      }
+      
       if ((0)) {
         // Dump 24 bit values as int
         
@@ -1618,14 +1833,15 @@ const static unsigned int blockDim = BLOCK_DIM;
         assert(expectedData);
         uint8_t *expectedDataPtr = (uint8_t *) expectedData.bytes;
         const int numBytes = (int)expectedData.length * sizeof(uint8_t);
-        assert(numBytes == (width * height));
         
         for ( int row = 0; row < height; row++ ) {
           for ( int col = 0; col < width; col++ ) {
             int offset = (row * width) + col;
-            int v = expectedDataPtr[offset];
+            //int v = expectedDataPtr[offset];
+            //fprintf(stdout, "%6X ", v);
             
-            fprintf(stdout, "%6X ", v);
+            uint32_t v = expectedDataPtr[offset] & 0xFF;
+            fprintf(stdout, "%3d ", v);
           }
           fprintf(stdout, "\n");
         }
@@ -1648,7 +1864,7 @@ const static unsigned int blockDim = BLOCK_DIM;
             int offset = (row * width) + col;
             
             int expectedSymbol = expectedDataPtr[offset]; // read byte
-            int renderedSymbol = renderedPixelPtr[offset] & 0xFF; // compare to jsut the B component
+            int renderedSymbol = renderedPixelPtr[offset] & 0xFF; // compare to just the B component
             
             if (renderedSymbol != expectedSymbol) {
               printf("renderedSymbol != expectedSymbol : %3d != %3d at (X,Y) (%3d,%3d) offset %d\n", renderedSymbol, expectedSymbol, col, row, offset);

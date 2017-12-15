@@ -33,7 +33,8 @@ typedef enum AAPLComputeBufferIndex
 {
   AAPLComputeBlockStartBitOffsets = 0,
   AAPLComputeHuffBuff = 1,
-  AAPLComputeHuffSymbolTable = 2
+  AAPLComputeHuffSymbolTable1 = 2,
+  AAPLComputeHuffSymbolTable2 = 3
 } AAPLComputeBufferIndex;
 
 // Texture index values shared between shader and C code to ensure Metal shader buffer inputs match
@@ -73,6 +74,24 @@ typedef struct
   uint16_t height;
 } RenderTargetDimensionsUniform;
 
+typedef struct
+{
+  uint16_t width;
+  uint16_t height;
+  //uint16_t xRootOffset;
+  //uint16_t yRootOffset;
+  uint16_t offset;
+  uint16_t _dummy;
+} RenderPassDimensionsAndOffsetUniform;
+
+typedef struct
+{
+  uint16_t width;
+  uint16_t height;
+  uint16_t blockWidth;
+  uint16_t blockHeight;
+} RenderTargetDimensionsAndBlockDimensionsUniform;
+
 typedef enum AAPLHuffmanTextureIndex
 {
   AAPLTexturePaddedOut = 0,
@@ -94,5 +113,8 @@ typedef enum AAPLHuffmanTextureIndex
 #define IMPL_DELTAS_BEFORE_HUFF_ENCODING
 
 #define BLOCK_DIM 8
+
+#define HUFF_TABLE1_NUM_BITS (8+2)
+#define HUFF_TABLE2_NUM_BITS (8-2)
 
 #endif /* ShaderTypes_h */
