@@ -37,9 +37,6 @@ const static unsigned int blockDim = BLOCK_DIM;
 {
     // The device (aka GPU) we're using to render
     id <MTLDevice> _device;
-
-  // Our compute pipeline composed of our kernal defined in the .metal shader file
-  //id <MTLComputePipelineState> _computePipelineState;
   
   // 12 and 16 symbol render pipelines
   id<MTLRenderPipelineState> _render12PipelineState;
@@ -80,10 +77,6 @@ const static unsigned int blockDim = BLOCK_DIM;
   // into this texture at known offsets that indicate a "slice".
   
   id<MTLTexture> _renderCombinedSlices;
-  
-  // Render size at original width and height in terms of blocks
-  MTLSize _threadgroupSize;
-  MTLSize _threadgroupCount;
 
   // Render size when each block is reduced to a single render pixel (thread)
   MTLSize _threadgroupRenderPassSize;
@@ -489,18 +482,6 @@ const static unsigned int blockDim = BLOCK_DIM;
       
       _render_texture = [self makeBGRACoreVideoTexture:CGSizeMake(width,height)
                                     cvPixelBufferRefPtr:&_render_cv_buffer];
-      
-      // Debug capture textures, these are same dimensions as _render_pass
-      
-#if defined(HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES)
-      renderFrame.debugPixelBlockiTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
-      renderFrame.debugRootBitOffsetTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
-      renderFrame.debugCurrentBitOffsetTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
-      renderFrame.debugBitWidthTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
-      renderFrame.debugBitPatternTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
-      renderFrame.debugSymbolsTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
-      renderFrame.debugCoordsTexture = [self makeBGRATexture:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) pixels:NULL];
-#endif // HUFF_EMIT_MULTIPLE_DEBUG_TEXTURES
 
       // Render stages
       
@@ -650,25 +631,6 @@ const static unsigned int blockDim = BLOCK_DIM;
           NSLog(@"Failed to created pipeline state, error %@", error);
         }
       }
-
-      // The kernel's render size is in terms of blocks where each pixel in each
-      // block is represented.
-
-      [self.class calculateThreadgroup:CGSizeMake(blockWidth * blockDim, blockHeight * blockDim) blockDim:blockDim sizePtr:&_threadgroupSize countPtr:&_threadgroupCount];
-      
-      // Calc compute kernel parameter for one render pass where 1/(N*N) worth of pixels
-      // are rendered in each iteration.
-      
-      CGSize renderSize;
-      
-      {
-        renderSize.width = blockWidth;
-        renderSize.height = blockHeight;
-      }
-      
-      // 1 pixel in thread group represents 1 block to be decoded (1 thread)
-      
-      [self.class calculateThreadgroup:renderSize blockDim:1 sizePtr:&_threadgroupRenderPassSize countPtr:&_threadgroupRenderPassCount];
       
       {
         // Render to texture pipeline
