@@ -37,7 +37,7 @@ typedef struct {
 // Fixed size 2048 byte table
 
 typedef struct {
-  HuffLookupSymbol table[1024];
+  HuffLookupSymbol table[HUFF_TABLE1_SIZE];
 } HuffLookupTable1;
 
 // Vertex Function

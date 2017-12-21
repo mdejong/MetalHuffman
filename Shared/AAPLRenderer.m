@@ -993,7 +993,7 @@ const static unsigned int blockDim = BLOCK_DIM;
         
         // Allocate Metal buffers that hold symbol table 1 and 2
         
-        const int table1Size = pow(2, table1BitNum);
+        const int table1Size = HUFF_TABLE1_SIZE; // aka pow(2, table1BitNum)
         const int table2Size = (int)table2.length / sizeof(HuffLookupSymbol);
         
         _huffSymbolTable1 = [_device newBufferWithLength:table1Size*sizeof(HuffLookupSymbol)

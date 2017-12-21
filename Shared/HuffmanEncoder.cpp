@@ -40,6 +40,10 @@ HuffmanEncoder::determine_frequency(const vector<uint8_t> & bytes) {
       }
     }
   }
+  
+  if ((0)) {
+      printf("numActiveSymbols = %d\n", numActiveSymbols);
+  }
 }
 
 void
