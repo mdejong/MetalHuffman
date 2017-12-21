@@ -19,6 +19,7 @@ typedef enum {
   TEST_IMAGE1,
   TEST_IMAGE2,
   TEST_IMAGE3,
+  TEST_IMAGE4,
 } HuffRenderFrameConfig;
 
 // Header shared between C code here, which executes Metal API commands, and .metal files, which

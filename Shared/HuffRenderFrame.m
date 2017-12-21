@@ -554,7 +554,26 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       
       break;
     }
+
+    case TEST_IMAGE4: {
+      // Load 8bit grayscale image that is 2048x1536, the max iPad screen size
       
+      NSString *resFilename = @"BigBridge.png";
+      NSString* path = [[NSBundle mainBundle] pathForResource:resFilename ofType:nil];
+      NSAssert(path, @"path is nil");
+      
+      UIImage *img = [UIImage imageWithContentsOfFile:path];
+      assert(img);
+      
+      // Convert PNG image
+      
+      renderFrame.renderWidth = img.size.width;
+      renderFrame.renderHeight = img.size.height;
+      
+      renderFrame.inputData = [self convertImageToGrayScale:img];
+      
+      break;
+    }
   }
   
   assert(renderFrame.inputData);
