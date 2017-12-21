@@ -32,7 +32,7 @@ Implementation of our iOS view controller
     self.subview.frame = CGRectMake(
                                   self.view.frame.size.width / 2,
                                   self.view.frame.size.height / 2,
-                                  160, 160);
+                                  300, 300);
   
     self.subview.device = MTLCreateSystemDefaultDevice();
 
