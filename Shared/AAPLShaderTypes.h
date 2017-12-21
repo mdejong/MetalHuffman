@@ -107,6 +107,7 @@ typedef enum AAPLHuffmanTextureIndex
 } AAPLHuffmanTextureIndex;
 
 #define IMPL_DELTAS_BEFORE_HUFF_ENCODING
+#define IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING
 
 #define BLOCK_DIM 8
 

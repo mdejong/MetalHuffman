@@ -36,7 +36,7 @@ HuffmanEncoder::determine_frequency(const vector<uint8_t> & bytes) {
     if (frequency[c] > 0) {
       numActiveSymbols += 1;
       if ((1)) {
-      printf("frequency[%3d] = %5d\n", c, frequency[c]);
+      printf("frequency[%3d] = %8d\n", c, frequency[c]);
       }
     }
   }

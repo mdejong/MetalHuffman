@@ -130,6 +130,8 @@ const static unsigned int blockDim = BLOCK_DIM;
   NSData *_huffInputBytes;
 
   NSData *_blockByBlockReorder;
+
+  NSData *_blockInitData;
   
   int renderWidth;
   int renderHeight;
@@ -785,12 +787,52 @@ const static unsigned int blockDim = BLOCK_DIM;
         
         NSMutableArray *mRowsOfDeltas = [NSMutableArray array];
         
-        for ( NSData *blockData in mBlocks ) {
+#if defined(IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING)
+        NSMutableData *mBlockInitData = [NSMutableData dataWithCapacity:(blockWidth * blockHeight)];
+#endif
+        
+        for ( NSMutableData *blockData in mBlocks ) {
           NSData *deltasData = [Huffman encodeSignedByteDeltas:blockData];
+          
+#if defined(IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING)
+          // When saving the first element of a block, do the deltas
+          // first and then pull out the first delta and set the delta
+          // byte to zero. This increases the count of the zero delta
+          // value and reduces the size of the generated tree while
+          // storing the block init value wo a huffman code.
+          {
+            NSMutableData *mDeltasData = [NSMutableData dataWithData:deltasData];
+            
+            uint8_t *bytePtr = mDeltasData.mutableBytes;
+            uint8_t firstByte = bytePtr[0];
+            bytePtr[0] = 0;
+            
+            [mBlockInitData appendBytes:&firstByte length:1];
+            
+            deltasData = [NSData dataWithData:mDeltasData];
+          }
+#endif // IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING
+          
           [mRowsOfDeltas addObject:deltasData];
           
 #if defined(DEBUG)
           // Check that decoding generates the original input
+          
+# if defined(IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING)
+          // Undo setting of the first element to zero.
+          {
+            uint8_t *initBytePtr = mBlockInitData.mutableBytes;
+            uint8_t firstByte = initBytePtr[mBlockInitData.length-1];
+            
+            NSMutableData *mDeltasData = [NSMutableData dataWithData:deltasData];
+            uint8_t *deltasBytePtr = mDeltasData.mutableBytes;
+            
+            deltasBytePtr[0] = firstByte;
+            
+            deltasData = [NSData dataWithData:mDeltasData];
+          }
+# endif // IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING
+          
           NSData *decodedDeltas = [Huffman decodeSignedByteDeltas:deltasData];
           NSAssert([decodedDeltas isEqualToData:blockData], @"decoded deltas");
 #endif // DEBUG
@@ -807,7 +849,19 @@ const static unsigned int blockDim = BLOCK_DIM;
             outBlockOrderSymbolsPtr[outWritei++] = ptr[i];
           }
         }
+        
+#if defined(IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING)
+        _blockInitData = [NSData dataWithData:mBlockInitData];
+#endif
       }
+#else
+      // Store init data as all zeros
+      NSMutableData *mBlockInitData = [NSMutableData dataWithCapacity:(blockWidth * blockHeight)];
+      for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
+        uint8_t zeroByte = 0;
+        [mBlockInitData appendBytes:&zeroByte length:1];
+      }
+      _blockInitData = [NSData dataWithData:mBlockInitData];
 #endif // IMPL_DELTAS_BEFORE_HUFF_ENCODING
       
       if ((0)) {
@@ -972,13 +1026,32 @@ const static unsigned int blockDim = BLOCK_DIM;
         }
       }
       
-      // Zero out pixels
+      // Zero out pixels / set to known init state
       
       if ((1))
       {
-        uint32_t *pixels = malloc(_render12Zeros.width * _render12Zeros.height * sizeof(uint32_t));
+        int numBytes = (int) (_render12Zeros.width * _render12Zeros.height * sizeof(uint32_t));
+        uint32_t *pixels = malloc(numBytes);
         
-        memset(pixels, 0, _render12Zeros.width * _render12Zeros.height * sizeof(uint32_t));
+#if defined(IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING)
+        int numBytesBlockData = (int) _blockInitData.length;
+        int numPixelsInInitBlock = (int) (_render12Zeros.width * _render12Zeros.height);
+        assert(numBytesBlockData == numPixelsInInitBlock);
+        
+        // Each output pixel is written as BGRA where R stores the previous pixel value
+        // and the BG 16 bit value is zero.
+        
+        uint8_t *blockValPtr = (uint8_t *) _blockInitData.bytes;
+        
+        for ( int i = 0; i < numPixelsInInitBlock; i++ ) {
+          uint8_t blockInitVal = blockValPtr[i];
+          uint32_t pixel = (blockInitVal << 16) | (0);
+          pixels[i] = pixel;
+        }
+#else
+        // Init all lanes to zero
+        memset(pixels, 0, numBytes);
+#endif // IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING
         
         {
           NSUInteger bytesPerRow = _render12Zeros.width * sizeof(uint32_t);
