@@ -34,6 +34,7 @@
 		3C1C56B31FE4433F0024A55E /* ImageIpadSize.png in Resources */ = {isa = PBXBuildFile; fileRef = 3C1C56B21FE4433E0024A55E /* ImageIpadSize.png */; };
 		3C4DC8FB1FDB495F00AABD25 /* ImageHuge.png in Resources */ = {isa = PBXBuildFile; fileRef = 3C4DC8FA1FDB495F00AABD25 /* ImageHuge.png */; };
 		3C56AF9B1FEC70F000005C41 /* BigBridge.png in Resources */ = {isa = PBXBuildFile; fileRef = 3C56AF9A1FEC70F000005C41 /* BigBridge.png */; };
+		3C56AF9E1FECE66B00005C41 /* HuffmanUtil.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 3C56AF9C1FECE66A00005C41 /* HuffmanUtil.cpp */; };
 		3CB220AA1F7E03FF0023B470 /* Image.png in Resources */ = {isa = PBXBuildFile; fileRef = 3CB220A81F7E03FF0023B470 /* Image.png */; };
 		3CDE879F1FBDFE1300EDB3FC /* Huffman.mm in Sources */ = {isa = PBXBuildFile; fileRef = 3CDE879E1FBDFE1300EDB3FC /* Huffman.mm */; };
 		3CDE87A21FC0FAAC00EDB3FC /* Util.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CDE87A11FC0FAAC00EDB3FC /* Util.m */; };
@@ -82,6 +83,9 @@
 		3C1C56B21FE4433E0024A55E /* ImageIpadSize.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ImageIpadSize.png; sourceTree = "<group>"; };
 		3C4DC8FA1FDB495F00AABD25 /* ImageHuge.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ImageHuge.png; sourceTree = "<group>"; };
 		3C56AF9A1FEC70F000005C41 /* BigBridge.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = BigBridge.png; sourceTree = "<group>"; };
+		3C56AF9C1FECE66A00005C41 /* HuffmanUtil.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = HuffmanUtil.cpp; sourceTree = "<group>"; };
+		3C56AF9D1FECE66A00005C41 /* HuffmanUtil.hpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.h; path = HuffmanUtil.hpp; sourceTree = "<group>"; };
+		3C56AF9F1FECE8F900005C41 /* HuffmanLookupSymbol.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = HuffmanLookupSymbol.h; sourceTree = "<group>"; };
 		3CB220A81F7E03FF0023B470 /* Image.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Image.png; sourceTree = "<group>"; };
 		3CDE879D1FBDFE1300EDB3FC /* Huffman.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Huffman.h; sourceTree = "<group>"; };
 		3CDE879E1FBDFE1300EDB3FC /* Huffman.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = Huffman.mm; sourceTree = "<group>"; };
@@ -177,8 +181,11 @@
 				3CE5C0FA1FCCF46A0031E0EA /* HuffRenderFrame.m */,
 				3AF7E9BE1EB64A46003BB06D /* AAPLRenderer.h */,
 				3AF7E9BF1EB64A46003BB06D /* AAPLRenderer.m */,
+				3C56AF9F1FECE8F900005C41 /* HuffmanLookupSymbol.h */,
 				3CDE879D1FBDFE1300EDB3FC /* Huffman.h */,
 				3CDE879E1FBDFE1300EDB3FC /* Huffman.mm */,
+				3C56AF9D1FECE66A00005C41 /* HuffmanUtil.hpp */,
+				3C56AF9C1FECE66A00005C41 /* HuffmanUtil.cpp */,
 				3CDE87A71FC2997B00EDB3FC /* HuffmanEncoder.hpp */,
 				3CDE87A61FC2997B00EDB3FC /* HuffmanEncoder.cpp */,
 				3CDE87A91FC29AE900EDB3FC /* huff_util.hpp */,
@@ -430,6 +437,7 @@
 				3AF7E9D61EB64A46003BB06D /* AAPLViewController.m in Sources */,
 				3CDE879F1FBDFE1300EDB3FC /* Huffman.mm in Sources */,
 				3A30EDF91EB67EA800B4FC0B /* AAPLImage.m in Sources */,
+				3C56AF9E1FECE66B00005C41 /* HuffmanUtil.cpp in Sources */,
 				3AF7E9D31EB64A46003BB06D /* AAPLAppDelegate.m in Sources */,
 				3CDE87A81FC2997C00EDB3FC /* HuffmanEncoder.cpp in Sources */,
 				3AF7E9CD1EB64A46003BB06D /* main.m in Sources */,

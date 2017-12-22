@@ -3,10 +3,7 @@
 
 #import <Foundation/Foundation.h>
 
-typedef struct {
-  uint8_t symbol;
-  uint8_t bitWidth;
-} HuffLookupSymbol;
+#import "HuffmanLookupSymbol.h"
 
 // Our platform independent render class
 @interface Huffman : NSObject
@@ -41,8 +38,6 @@ typedef struct {
 // where the first table should contain the vast majority
 // of the symbols and the second table is read and used
 // only when needed.
-
-#define DecodeHuffmanBitsFromTablesCompareToOriginal
 
 + (void) decodeHuffmanBitsFromTables:(HuffLookupSymbol*)huffSymbolTable1
                     huffSymbolTable2:(HuffLookupSymbol*)huffSymbolTable2
