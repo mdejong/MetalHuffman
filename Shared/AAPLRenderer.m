@@ -77,10 +77,6 @@ const static unsigned int blockDim = BLOCK_DIM;
   // into this texture at known offsets that indicate a "slice".
   
   id<MTLTexture> _renderCombinedSlices;
-
-  // Render size when each block is reduced to a single render pixel (thread)
-  MTLSize _threadgroupRenderPassSize;
-  MTLSize _threadgroupRenderPassCount;
   
     // render to texture pipeline is used to render into a texture
     id<MTLRenderPipelineState> _renderToTexturePipelineState;
@@ -94,7 +90,6 @@ const static unsigned int blockDim = BLOCK_DIM;
     // Texture cache
     CVMetalTextureCacheRef _textureCache;
   
-    CVPixelBufferRef _render_cv_buffer;
     id<MTLTexture> _render_texture;
   
     // The Metal buffer in which we store our vertex data
@@ -462,8 +457,7 @@ const static unsigned int blockDim = BLOCK_DIM;
         ptr->blockHeight = blockHeight;
       }
       
-      _render_texture = [self makeBGRACoreVideoTexture:CGSizeMake(width,height)
-                                    cvPixelBufferRefPtr:&_render_cv_buffer];
+      _render_texture = [self makeBGRATexture:CGSizeMake(width,height) pixels:NULL];
 
       // Render stages
       
