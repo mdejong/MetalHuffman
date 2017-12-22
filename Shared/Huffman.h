@@ -14,8 +14,7 @@ typedef struct {
 // Parse a canonical header of 256 bytes and extract the
 // symbol table to local storage in this module.
 
-+ (void) parseCanonicalHeader:(NSData*)canonData
-                 originalSize:(uint32_t)originalSize;
++ (void) parseCanonicalHeader:(NSData*)canonData;
 
 // Generate values for lookup table
 

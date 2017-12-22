@@ -364,6 +364,322 @@ const static unsigned int blockDim = BLOCK_DIM;
   return;
 }
 
+- (void) setupHuffmanEncoding
+{
+  unsigned int width = self->renderWidth;
+  unsigned int height = self->renderHeight;
+  
+  unsigned int blockWidth = self->renderBlockWidth;
+  unsigned int blockHeight = self->renderBlockHeight;
+  
+  NSMutableData *outFileHeader = [NSMutableData data];
+  NSMutableData *outCanonHeader = [NSMutableData data];
+  NSMutableData *outHuffCodes = [NSMutableData data];
+  NSMutableData *outBlockBitOffsets = [NSMutableData data];
+  
+  // To encode symbols with huffman block encoding, the order of the symbols
+  // needs to be broken up so that the input ordering is in terms of blocks and
+  // the partial blocks are handled in a way that makes it possible to process
+  // the data with the shader. Note that this logic will split into fixed block
+  // size with zero padding, so the output would need to be reordered back to
+  // image order and then trimmed to width and height in order to match.
+  
+  int outBlockOrderSymbolsNumBytes = (blockDim * blockDim) * (blockWidth * blockHeight);
+  
+  // Generate input that is zero padded out to the number of blocks needed
+  NSMutableData *outBlockOrderSymbolsData = [NSMutableData dataWithLength:outBlockOrderSymbolsNumBytes];
+  uint8_t *outBlockOrderSymbolsPtr = (uint8_t *) outBlockOrderSymbolsData.bytes;
+  
+  [Util splitIntoBlocksOfSize:blockDim
+                      inBytes:(uint8_t*)_huffInputBytes.bytes
+                     outBytes:outBlockOrderSymbolsPtr
+                        width:width
+                       height:height
+             numBlocksInWidth:blockWidth
+            numBlocksInHeight:blockHeight
+                    zeroValue:0];
+  
+  // Deal with the case where there are not enough total blocks to zero pad
+  
+  if ((0)) {
+    //        for (int i = 0; i < outBlockOrderSymbolsNumBytes; i++) {
+    //          printf("outBlockOrderSymbolsPtr[%5i] = %d\n", i, outBlockOrderSymbolsPtr[i]);
+    //        }
+    
+    printf("block order\n");
+    
+    for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
+      printf("block %5d : ", blocki);
+      
+      uint8_t *blockStartPtr = outBlockOrderSymbolsPtr + (blocki * (blockDim * blockDim));
+      
+      for (int i = 0; i < (blockDim * blockDim); i++) {
+        printf("%5d ", blockStartPtr[i]);
+      }
+      printf("\n");
+    }
+    
+    printf("block order done\n");
+  }
+  
+#if defined(IMPL_DELTAS_BEFORE_HUFF_ENCODING)
+  if ((1)) {
+    // byte deltas
+    
+    NSMutableArray *mBlocks = [NSMutableArray array];
+    
+    for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
+      NSMutableData *mRowData = [NSMutableData data];
+      uint8_t *blockStartPtr = outBlockOrderSymbolsPtr + (blocki * (blockDim * blockDim));
+      [mRowData appendBytes:blockStartPtr length:(blockDim * blockDim)];
+      [mBlocks addObject:mRowData];
+    }
+    
+    // Convert blocks to deltas
+    
+    NSMutableArray *mRowsOfDeltas = [NSMutableArray array];
+    
+#if defined(IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING)
+    NSMutableData *mBlockInitData = [NSMutableData dataWithCapacity:(blockWidth * blockHeight)];
+#endif
+    
+    for ( NSMutableData *blockData in mBlocks ) {
+      NSData *deltasData = [Huffman encodeSignedByteDeltas:blockData];
+      
+#if defined(IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING)
+      // When saving the first element of a block, do the deltas
+      // first and then pull out the first delta and set the delta
+      // byte to zero. This increases the count of the zero delta
+      // value and reduces the size of the generated tree while
+      // storing the block init value wo a huffman code.
+      {
+        NSMutableData *mDeltasData = [NSMutableData dataWithData:deltasData];
+        
+        uint8_t *bytePtr = mDeltasData.mutableBytes;
+        uint8_t firstByte = bytePtr[0];
+        bytePtr[0] = 0;
+        
+        [mBlockInitData appendBytes:&firstByte length:1];
+        
+        deltasData = [NSData dataWithData:mDeltasData];
+      }
+#endif // IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING
+      
+      [mRowsOfDeltas addObject:deltasData];
+      
+#if defined(DEBUG)
+      // Check that decoding generates the original input
+      
+# if defined(IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING)
+      // Undo setting of the first element to zero.
+      {
+        uint8_t *initBytePtr = mBlockInitData.mutableBytes;
+        uint8_t firstByte = initBytePtr[mBlockInitData.length-1];
+        
+        NSMutableData *mDeltasData = [NSMutableData dataWithData:deltasData];
+        uint8_t *deltasBytePtr = mDeltasData.mutableBytes;
+        
+        deltasBytePtr[0] = firstByte;
+        
+        deltasData = [NSData dataWithData:mDeltasData];
+      }
+# endif // IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING
+      
+      NSData *decodedDeltas = [Huffman decodeSignedByteDeltas:deltasData];
+      NSAssert([decodedDeltas isEqualToData:blockData], @"decoded deltas");
+#endif // DEBUG
+    }
+    
+    // Write delta values back over outBlockOrderSymbolsPtr
+    
+    int outWritei = 0;
+    
+    for ( NSData *deltaRow in mRowsOfDeltas ) {
+      uint8_t *ptr = (uint8_t *) deltaRow.bytes;
+      const int len = (int) deltaRow.length;
+      for ( int i = 0; i < len; i++) {
+        outBlockOrderSymbolsPtr[outWritei++] = ptr[i];
+      }
+    }
+    
+#if defined(IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING)
+    _blockInitData = [NSData dataWithData:mBlockInitData];
+#endif
+  }
+#else
+  // Store init data as all zeros
+  NSMutableData *mBlockInitData = [NSMutableData dataWithCapacity:(blockWidth * blockHeight)];
+  for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
+    uint8_t zeroByte = 0;
+    [mBlockInitData appendBytes:&zeroByte length:1];
+  }
+  _blockInitData = [NSData dataWithData:mBlockInitData];
+#endif // IMPL_DELTAS_BEFORE_HUFF_ENCODING
+  
+  if ((0)) {
+    //        for (int i = 0; i < outBlockOrderSymbolsNumBytes; i++) {
+    //          printf("outBlockOrderSymbolsPtr[%5i] = %d\n", i, outBlockOrderSymbolsPtr[i]);
+    //        }
+    
+    printf("block order\n");
+    
+    for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
+      printf("block %5d : ", blocki);
+      
+      uint8_t *blockStartPtr = outBlockOrderSymbolsPtr + (blocki * (blockDim * blockDim));
+      
+      for (int i = 0; i < (blockDim * blockDim); i++) {
+        printf("%5d ", blockStartPtr[i]);
+      }
+      printf("\n");
+    }
+    
+    printf("block order done\n");
+  }
+  
+  // number of blocks must be an exact multiple of the block dimension
+  
+  assert((outBlockOrderSymbolsNumBytes % (blockDim * blockDim)) == 0);
+  
+  [Huffman encodeHuffman:outBlockOrderSymbolsPtr
+              inNumBytes:outBlockOrderSymbolsNumBytes
+           outFileHeader:outFileHeader
+          outCanonHeader:outCanonHeader
+            outHuffCodes:outHuffCodes
+      outBlockBitOffsets:outBlockBitOffsets
+                   width:width
+                  height:height
+                blockDim:blockDim];
+  
+  if ((1)) {
+    printf("inNumBytes   %8d\n", outBlockOrderSymbolsNumBytes);
+    printf("outNumBytes  %8d\n", (int)outHuffCodes.length);
+  }
+  
+  // Reparse the canonical header to load symbol table info
+  
+  [Huffman parseCanonicalHeader:outCanonHeader];
+  
+  // FIXME: allocate huffman encoded bytes with no copy option to share existing mem?
+  // Otherise allocate and provide way to read bytes directly into allocated buffer.
+  
+  uint8_t *encodedSymbolsPtr = outHuffCodes.mutableBytes;
+  int encodedSymbolsNumBytes = (int) outHuffCodes.length;
+  
+  // Add 2 more empty bytes to account for read ahead
+  encodedSymbolsNumBytes += 2;
+  
+  // Allocate a new buffer that accounts for read ahead space
+  // and copy huffman encoded symbols into the allocated buffer.
+  
+  _huffBuff = [_device newBufferWithLength:encodedSymbolsNumBytes
+                                   options:MTLResourceStorageModeShared];
+  
+  memcpy(_huffBuff.contents, encodedSymbolsPtr, encodedSymbolsNumBytes-2);
+  
+  if ((0)) {
+    // Encoded huffman symbols as hex?
+    
+    fprintf(stdout, "encodedSymbols\n");
+    
+    for (int i = 0; i < encodedSymbolsNumBytes; i++) {
+      int symbol = encodedSymbolsPtr[i];
+      
+      fprintf(stdout, "%2X \n", symbol);
+    }
+    
+    fprintf(stdout, "done encodedSymbols\n");
+  }
+  
+  {
+    const int table1BitNum = HUFF_TABLE1_NUM_BITS;
+    const int table2BitNum = HUFF_TABLE2_NUM_BITS;
+    
+    NSMutableData *table1 = [NSMutableData data];
+    NSMutableData *table2 = [NSMutableData data];
+    
+    [Huffman generateSplitLookupTables:table1BitNum
+                         table2NumBits:table2BitNum
+                                table1:table1
+                                table2:table2];
+    
+    // Invoke split table decoding logic to check that the generated tables
+    // can be read to regenerate the original input.
+    
+#if defined(DEBUG)
+    
+    HuffLookupSymbol *codeLookupTablePtr1 = (HuffLookupSymbol *) table1.bytes;
+    assert(codeLookupTablePtr1);
+    HuffLookupSymbol *codeLookupTablePtr2 = (HuffLookupSymbol *) table2.bytes;
+    assert(codeLookupTablePtr1);
+    
+    NSMutableData *mDecodedBlockOrderSymbols = [NSMutableData data];
+    [mDecodedBlockOrderSymbols setLength:outBlockOrderSymbolsNumBytes];
+    uint8_t *decodedBlockOrderSymbolsPtr = (uint8_t *) mDecodedBlockOrderSymbols.mutableBytes;
+    
+    uint8_t *huffSymbolsWithPadding = (uint8_t *) _huffBuff.contents;
+    int huffSymbolsWithPaddingNumBytes = encodedSymbolsNumBytes;
+    
+    NSMutableData *mDecodedBitOffsetData = [NSMutableData data];
+    [mDecodedBitOffsetData setLength:(outBlockOrderSymbolsNumBytes * sizeof(uint32_t))];
+    uint32_t *decodedBitOffsetPtr = (uint32_t *) mDecodedBitOffsetData.mutableBytes;
+    
+    [Huffman decodeHuffmanBitsFromTables:codeLookupTablePtr1
+                        huffSymbolTable2:codeLookupTablePtr2
+                            table1BitNum:table1BitNum
+                            table2BitNum:table2BitNum
+                      numSymbolsToDecode:outBlockOrderSymbolsNumBytes
+                                huffBuff:huffSymbolsWithPadding
+                               huffBuffN:huffSymbolsWithPaddingNumBytes
+                               outBuffer:decodedBlockOrderSymbolsPtr
+                          bitOffsetTable:decodedBitOffsetPtr
+#if defined(DecodeHuffmanBitsFromTablesCompareToOriginal)
+                           originalBytes:outBlockOrderSymbolsPtr
+#endif // DecodeHuffmanBitsFromTablesCompareToOriginal
+     ];
+    
+    int cmp = memcmp(decodedBlockOrderSymbolsPtr, outBlockOrderSymbolsPtr, outBlockOrderSymbolsNumBytes);
+    assert(cmp == 0);
+#endif // DEBUG
+    
+    // Allocate Metal buffers that hold symbol table 1 and 2
+    
+    const int table1Size = HUFF_TABLE1_SIZE; // aka pow(2, table1BitNum)
+    const int table2Size = (int)table2.length / sizeof(HuffLookupSymbol);
+    
+    _huffSymbolTable1 = [_device newBufferWithLength:table1Size*sizeof(HuffLookupSymbol)
+                                             options:MTLResourceStorageModeShared];
+    
+    _huffSymbolTable2 = [_device newBufferWithLength:table2Size*sizeof(HuffLookupSymbol)
+                                             options:MTLResourceStorageModeShared];
+    
+    assert(_huffSymbolTable1.length == table1.length);
+    assert(_huffSymbolTable2.length == table2.length);
+    
+    memcpy(_huffSymbolTable1.contents, table1.bytes, table1.length);
+    memcpy(_huffSymbolTable2.contents, table2.bytes, table2.length);
+  }
+  
+  // Init memory buffer that holds bit offsets for each block
+  
+  uint32_t *blockInPtr = (uint32_t *) outBlockBitOffsets.bytes;
+  uint32_t *blockOutPtr = (uint32_t *) _blockStartBitOffsets.contents;
+  int numBlocks = (int)outBlockBitOffsets.length / sizeof(uint32_t);
+  
+  for (int blocki = 0; blocki < numBlocks; blocki++) {
+    int blockiOffset = blockInPtr[blocki];
+    blockOutPtr[blocki] = blockiOffset;
+    
+    if ((0)) {
+#if defined(DEBUG)
+      fprintf(stdout, "block[%5d] = %5d (bitOffsetsPtr[%5d])\n", blocki, blockOutPtr[blocki], blockiOffset);
+#endif // DEBUG
+    }
+  }
+  
+  return;
+}
+
 // Initialize with the MetalKit view from which we'll obtain our metal device
 
 - (nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)mtkView
@@ -714,312 +1030,8 @@ const static unsigned int blockDim = BLOCK_DIM;
 //      if (allocatedSymbolsPtr) {
 //      free(inputSymbolsPtr);
 //      }
-      
-      NSMutableData *outFileHeader = [NSMutableData data];
-      NSMutableData *outCanonHeader = [NSMutableData data];
-      NSMutableData *outHuffCodes = [NSMutableData data];
-      NSMutableData *outBlockBitOffsets = [NSMutableData data];
-      
-      // To encode symbols with huffman block encoding, the order of the symbols
-      // needs to be broken up so that the input ordering is in terms of blocks and
-      // the partial blocks are handled in a way that makes it possible to process
-      // the data with the shader. Note that this logic will split into fixed block
-      // size with zero padding, so the output would need to be reordered back to
-      // image order and then trimmed to width and height in order to match.
-      
-      int outBlockOrderSymbolsNumBytes = (blockDim * blockDim) * (blockWidth * blockHeight);
-      
-      // Generate input that is zero padded out to the number of blocks needed
-      NSMutableData *outBlockOrderSymbolsData = [NSMutableData dataWithLength:outBlockOrderSymbolsNumBytes];
-      uint8_t *outBlockOrderSymbolsPtr = (uint8_t *) outBlockOrderSymbolsData.bytes;
-      
-      [Util splitIntoBlocksOfSize:blockDim
-                          inBytes:(uint8_t*)_huffInputBytes.bytes
-                         outBytes:outBlockOrderSymbolsPtr
-                            width:width
-                           height:height
-                 numBlocksInWidth:blockWidth
-                numBlocksInHeight:blockHeight
-                        zeroValue:0];
 
-      // Deal with the case where there are not enough total blocks to zero pad
-      
-      if ((0)) {
-//        for (int i = 0; i < outBlockOrderSymbolsNumBytes; i++) {
-//          printf("outBlockOrderSymbolsPtr[%5i] = %d\n", i, outBlockOrderSymbolsPtr[i]);
-//        }
-
-        printf("block order\n");
-        
-        for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
-          printf("block %5d : ", blocki);
-          
-          uint8_t *blockStartPtr = outBlockOrderSymbolsPtr + (blocki * (blockDim * blockDim));
-          
-          for (int i = 0; i < (blockDim * blockDim); i++) {
-            printf("%5d ", blockStartPtr[i]);
-          }
-          printf("\n");
-        }
-        
-        printf("block order done\n");
-      }
-
-#if defined(IMPL_DELTAS_BEFORE_HUFF_ENCODING)
-      if ((1)) {
-        // byte deltas
-        
-        NSMutableArray *mBlocks = [NSMutableArray array];
-        
-        for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
-          NSMutableData *mRowData = [NSMutableData data];
-          uint8_t *blockStartPtr = outBlockOrderSymbolsPtr + (blocki * (blockDim * blockDim));
-          [mRowData appendBytes:blockStartPtr length:(blockDim * blockDim)];
-          [mBlocks addObject:mRowData];
-        }
-        
-        // Convert blocks to deltas
-        
-        NSMutableArray *mRowsOfDeltas = [NSMutableArray array];
-        
-#if defined(IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING)
-        NSMutableData *mBlockInitData = [NSMutableData dataWithCapacity:(blockWidth * blockHeight)];
-#endif
-        
-        for ( NSMutableData *blockData in mBlocks ) {
-          NSData *deltasData = [Huffman encodeSignedByteDeltas:blockData];
-          
-#if defined(IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING)
-          // When saving the first element of a block, do the deltas
-          // first and then pull out the first delta and set the delta
-          // byte to zero. This increases the count of the zero delta
-          // value and reduces the size of the generated tree while
-          // storing the block init value wo a huffman code.
-          {
-            NSMutableData *mDeltasData = [NSMutableData dataWithData:deltasData];
-            
-            uint8_t *bytePtr = mDeltasData.mutableBytes;
-            uint8_t firstByte = bytePtr[0];
-            bytePtr[0] = 0;
-            
-            [mBlockInitData appendBytes:&firstByte length:1];
-            
-            deltasData = [NSData dataWithData:mDeltasData];
-          }
-#endif // IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING
-          
-          [mRowsOfDeltas addObject:deltasData];
-          
-#if defined(DEBUG)
-          // Check that decoding generates the original input
-          
-# if defined(IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING)
-          // Undo setting of the first element to zero.
-          {
-            uint8_t *initBytePtr = mBlockInitData.mutableBytes;
-            uint8_t firstByte = initBytePtr[mBlockInitData.length-1];
-            
-            NSMutableData *mDeltasData = [NSMutableData dataWithData:deltasData];
-            uint8_t *deltasBytePtr = mDeltasData.mutableBytes;
-            
-            deltasBytePtr[0] = firstByte;
-            
-            deltasData = [NSData dataWithData:mDeltasData];
-          }
-# endif // IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING
-          
-          NSData *decodedDeltas = [Huffman decodeSignedByteDeltas:deltasData];
-          NSAssert([decodedDeltas isEqualToData:blockData], @"decoded deltas");
-#endif // DEBUG
-        }
-        
-        // Write delta values back over outBlockOrderSymbolsPtr
-        
-        int outWritei = 0;
-        
-        for ( NSData *deltaRow in mRowsOfDeltas ) {
-          uint8_t *ptr = (uint8_t *) deltaRow.bytes;
-          const int len = (int) deltaRow.length;
-          for ( int i = 0; i < len; i++) {
-            outBlockOrderSymbolsPtr[outWritei++] = ptr[i];
-          }
-        }
-        
-#if defined(IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING)
-        _blockInitData = [NSData dataWithData:mBlockInitData];
-#endif
-      }
-#else
-      // Store init data as all zeros
-      NSMutableData *mBlockInitData = [NSMutableData dataWithCapacity:(blockWidth * blockHeight)];
-      for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
-        uint8_t zeroByte = 0;
-        [mBlockInitData appendBytes:&zeroByte length:1];
-      }
-      _blockInitData = [NSData dataWithData:mBlockInitData];
-#endif // IMPL_DELTAS_BEFORE_HUFF_ENCODING
-      
-      if ((0)) {
-        //        for (int i = 0; i < outBlockOrderSymbolsNumBytes; i++) {
-        //          printf("outBlockOrderSymbolsPtr[%5i] = %d\n", i, outBlockOrderSymbolsPtr[i]);
-        //        }
-        
-        printf("block order\n");
-        
-        for ( int blocki = 0; blocki < (blockWidth * blockHeight); blocki++ ) {
-          printf("block %5d : ", blocki);
-          
-          uint8_t *blockStartPtr = outBlockOrderSymbolsPtr + (blocki * (blockDim * blockDim));
-          
-          for (int i = 0; i < (blockDim * blockDim); i++) {
-            printf("%5d ", blockStartPtr[i]);
-          }
-          printf("\n");
-        }
-        
-        printf("block order done\n");
-      }
-      
-      // number of blocks must be an exact multiple of the block dimension
-      
-      assert((outBlockOrderSymbolsNumBytes % (blockDim * blockDim)) == 0);
-      
-      [Huffman encodeHuffman:outBlockOrderSymbolsPtr
-                  inNumBytes:outBlockOrderSymbolsNumBytes
-               outFileHeader:outFileHeader
-              outCanonHeader:outCanonHeader
-                outHuffCodes:outHuffCodes
-          outBlockBitOffsets:outBlockBitOffsets
-                       width:width
-                      height:height
-                    blockDim:blockDim];
-  
-      if ((1)) {
-        printf("inNumBytes   %8d\n", outBlockOrderSymbolsNumBytes);
-        printf("outNumBytes  %8d\n", (int)outHuffCodes.length);
-      }
-
-      // Reparse the canonical header to load symbol table info
-      
-      [Huffman parseCanonicalHeader:outCanonHeader
-                       originalSize:(int)renderFrame.inputData.length];
-      
-  // FIXME: allocate huffman encoded bytes with no copy option to share existing mem?
-  // Otherise allocate and provide way to read bytes directly into allocated buffer.
-
-  uint8_t *encodedSymbolsPtr = outHuffCodes.mutableBytes;
-  int encodedSymbolsNumBytes = (int) outHuffCodes.length;
-      
-  // Add 2 more empty bytes to account for read ahead
-  encodedSymbolsNumBytes += 2;
-  
-  // Allocate a new buffer that accounts for read ahead space
-  // and copy huffman encoded symbols into the allocated buffer.
-      
-  _huffBuff = [_device newBufferWithLength:encodedSymbolsNumBytes
-               options:MTLResourceStorageModeShared];
-  
-  memcpy(_huffBuff.contents, encodedSymbolsPtr, encodedSymbolsNumBytes-2);
-      
-  if ((0)) {
-    // Encoded huffman symbols as hex?
-    
-    fprintf(stdout, "encodedSymbols\n");
-    
-    for (int i = 0; i < encodedSymbolsNumBytes; i++) {
-      int symbol = encodedSymbolsPtr[i];
-      
-      fprintf(stdout, "%2X \n", symbol);
-    }
-    
-    fprintf(stdout, "done encodedSymbols\n");
-  }
-
-      {
-        const int table1BitNum = HUFF_TABLE1_NUM_BITS;
-        const int table2BitNum = HUFF_TABLE2_NUM_BITS;
-        
-        NSMutableData *table1 = [NSMutableData data];
-        NSMutableData *table2 = [NSMutableData data];
-        
-        [Huffman generateSplitLookupTables:table1BitNum
-                             table2NumBits:table2BitNum
-                                    table1:table1
-                                    table2:table2];
-        
-        // Invoke split table decoding logic to check that the generated tables
-        // can be read to regenerate the original input.
-        
-#if defined(DEBUG)
-        
-        HuffLookupSymbol *codeLookupTablePtr1 = (HuffLookupSymbol *) table1.bytes;
-        assert(codeLookupTablePtr1);
-        HuffLookupSymbol *codeLookupTablePtr2 = (HuffLookupSymbol *) table2.bytes;
-        assert(codeLookupTablePtr1);
-        
-        NSMutableData *mDecodedBlockOrderSymbols = [NSMutableData data];
-        [mDecodedBlockOrderSymbols setLength:outBlockOrderSymbolsNumBytes];
-        uint8_t *decodedBlockOrderSymbolsPtr = (uint8_t *) mDecodedBlockOrderSymbols.mutableBytes;
-        
-        uint8_t *huffSymbolsWithPadding = (uint8_t *) _huffBuff.contents;
-        int huffSymbolsWithPaddingNumBytes = encodedSymbolsNumBytes;
-        
-        NSMutableData *mDecodedBitOffsetData = [NSMutableData data];
-        [mDecodedBitOffsetData setLength:(outBlockOrderSymbolsNumBytes * sizeof(uint32_t))];
-        uint32_t *decodedBitOffsetPtr = (uint32_t *) mDecodedBitOffsetData.mutableBytes;
-        
-        [Huffman decodeHuffmanBitsFromTables:codeLookupTablePtr1
-                            huffSymbolTable2:codeLookupTablePtr2
-                                table1BitNum:table1BitNum
-                                table2BitNum:table2BitNum
-                          numSymbolsToDecode:outBlockOrderSymbolsNumBytes
-                                    huffBuff:huffSymbolsWithPadding
-                                   huffBuffN:huffSymbolsWithPaddingNumBytes
-                                   outBuffer:decodedBlockOrderSymbolsPtr
-                              bitOffsetTable:decodedBitOffsetPtr
-#if defined(DecodeHuffmanBitsFromTablesCompareToOriginal)
-                               originalBytes:outBlockOrderSymbolsPtr
-#endif // DecodeHuffmanBitsFromTablesCompareToOriginal
-         ];
-        
-        int cmp = memcmp(decodedBlockOrderSymbolsPtr, outBlockOrderSymbolsPtr, outBlockOrderSymbolsNumBytes);
-        assert(cmp == 0);
-#endif // DEBUG
-        
-        // Allocate Metal buffers that hold symbol table 1 and 2
-        
-        const int table1Size = HUFF_TABLE1_SIZE; // aka pow(2, table1BitNum)
-        const int table2Size = (int)table2.length / sizeof(HuffLookupSymbol);
-        
-        _huffSymbolTable1 = [_device newBufferWithLength:table1Size*sizeof(HuffLookupSymbol)
-                                                 options:MTLResourceStorageModeShared];
-        
-        _huffSymbolTable2 = [_device newBufferWithLength:table2Size*sizeof(HuffLookupSymbol)
-                                                 options:MTLResourceStorageModeShared];
-        
-        assert(_huffSymbolTable1.length == table1.length);
-        assert(_huffSymbolTable2.length == table2.length);
-        
-        memcpy(_huffSymbolTable1.contents, table1.bytes, table1.length);
-        memcpy(_huffSymbolTable2.contents, table2.bytes, table2.length);
-      }
-  
-  // Init memory buffer that holds bit offsets for each block
-
-      uint32_t *blockInPtr = (uint32_t *) outBlockBitOffsets.bytes;
-      uint32_t *blockOutPtr = (uint32_t *) _blockStartBitOffsets.contents;
-      int numBlocks = (int)outBlockBitOffsets.length / sizeof(uint32_t);
-      
-      for (int blocki = 0; blocki < numBlocks; blocki++) {
-        int blockiOffset = blockInPtr[blocki];
-        blockOutPtr[blocki] = blockiOffset;
-        
-        if ((0)) {
-#if defined(DEBUG)
-        fprintf(stdout, "block[%5d] = %5d (bitOffsetsPtr[%5d])\n", blocki, blockOutPtr[blocki], blockiOffset);
-#endif // DEBUG
-        }
-      }
+      [self setupHuffmanEncoding];
       
       // Zero out pixels / set to known init state
       

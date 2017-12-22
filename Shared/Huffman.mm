@@ -324,29 +324,12 @@ generateLookupTableRange(HuffLookupSymbol * lookupTablePtr,
 // symbol table to local storage in this module.
 
 + (void) parseCanonicalHeader:(NSData*)canonData
-              originalSize:(uint32_t)originalSize
 {
   const int maxNumSymbols = 256;
   
   canonicalSymbolTable.resize(maxNumSymbols);
   bitWidthTable.resize(maxNumSymbols);
   canonicalHeader.resize(maxNumSymbols);
-  
-  originalSymbolBufferSize = originalSize;
-  
-  // First 4 bytes contains an int indicating the orginal
-  // number of input symbols
-  
-//  originalSymbolBufferSize = 1;
-//  uint32_t *sizePtr = (uint32_t *) data.bytes;
-//  originalSymbolBufferSize = sizePtr[0];
-//  *originalSizePtr = originalSymbolBufferSize;
-  
-  // Next 256 bytes is the canonical header
-  
-  //memcpy(canonicalHeader.data(), &sizePtr[1], 256);
-  //*encodedBitsPtr = ((uint8_t*)&sizePtr[1]) + 256;
-  //*encodedBitsNumBytesPtr = (int)data.length - 256 - sizeof(uint32_t);
   
   memcpy(canonicalHeader.data(), canonData.bytes, 256);
   
@@ -365,7 +348,9 @@ generateLookupTableRange(HuffLookupSymbol * lookupTablePtr,
       canonicalSymbolTable[symbol] = canonicalCode;
       bitWidthTable[symbol] = bitWidth;
       
+      if ((1)) {
       printf("canonicalSymbolTable[%3d] = %s (bit width %2d)\n", symbol, get_code_bits_as_string(canonicalCode, 16).c_str(), bitWidth);
+      }
     }
   }
   
