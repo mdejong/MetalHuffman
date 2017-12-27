@@ -1002,6 +1002,7 @@ HuffmanUtil::decodeHuffmanBitsFromTables(
     
 #if defined(DecodeHuffmanBitsFromTablesCompareToOriginal)
     // Check output symbol as compared to the original
+    if (originalBytes != nullptr)
     {
       uint8_t origCode = originalBytes[outOffseti];
       uint8_t decodedCode = symbol;
