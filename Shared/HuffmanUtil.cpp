@@ -272,11 +272,14 @@ HuffmanUtil::parseCanonicalHeader(uint8_t *canonData)
 {
   const int maxNumSymbols = 256;
   
-  canonicalSymbolTable.resize(maxNumSymbols);
-  bitWidthTable.resize(maxNumSymbols);
-  canonicalHeader.resize(maxNumSymbols);
-  
-  memcpy(canonicalHeader.data(), canonData, 256);
+  if (canonicalSymbolTable.size() != maxNumSymbols) {
+    canonicalSymbolTable.resize(maxNumSymbols);
+    bitWidthTable.resize(maxNumSymbols);
+    canonicalHeader.resize(maxNumSymbols);
+  }
+
+  memcpy(canonicalHeader.data(), canonData, maxNumSymbols * sizeof(uint8_t));
+  memset(bitWidthTable.data(), 0, maxNumSymbols * sizeof(uint8_t));
   
   // Decode canonical symbols
   
@@ -343,10 +346,16 @@ HuffmanUtil::generateSplitLookupTables(
   assert((table1NumBits + table2NumBits) == 16);
 #endif
   
-  int numEntriesInTable1 = pow(2,table1NumBits);
-  int numEntriesInTable2 = pow(2,table2NumBits);
+  const int numEntriesInTable1 = HUFF_TABLE1_SIZE;
+  const int numEntriesInTable2 = HUFF_TABLE2_SIZE;
   
-  table1.resize(numEntriesInTable1);
+  if (table1.size() != numEntriesInTable1) {
+    table1.resize(numEntriesInTable1);
+    memset(table1.data(), 0, numEntriesInTable1 * sizeof(HuffLookupSymbol));
+  } else {
+    // Not resized, zero out memory though
+    memset(table1.data(), 0, numEntriesInTable1 * sizeof(HuffLookupSymbol));
+  }
 
   HuffLookupSymbol *table1Ptr = table1.data();
   HuffLookupSymbol *table2Ptr = nullptr;
@@ -528,7 +537,13 @@ HuffmanUtil::generateSplitLookupTables(
     int numSecondaryTables = (int)dupLowTables.size() + 1;
     int numEntriesInAllTable2 = numEntriesInTable2 * numSecondaryTables;
     
-    table2.resize(numEntriesInAllTable2);
+    if (table2.size() != numEntriesInAllTable2) {
+      table2.resize(numEntriesInAllTable2);
+      memset(table2.data(), 0, numEntriesInAllTable2 * sizeof(HuffLookupSymbol));
+    } else {
+      // Not resized, no need to zero out memory here since if a cell
+      // will be accessed then it should have been written above.
+    }
     table2Ptr = table2.data();
   }
   
@@ -609,10 +624,15 @@ HuffmanUtil::generateSplitLookupTables(
     
     // Update the symbol value in table1 to correspond to the secondary table offset
     
+#if defined(DEBUG)
+    assert(high < table1.size());
+#endif // DEBUG
+    
     HuffLookupSymbol & t1Entry = table1Ptr[high];
     if (t1Entry.bitWidth == 0) {
       // Bit width should be zero since high is not a unique bit prefix
     } else {
+      //printf("high part lookup for %d returned non-zero bit width element %d\n", high, (int)t1Entry.bitWidth);
       assert(0);
     }
     
@@ -660,7 +680,7 @@ HuffmanUtil::decodeHuffmanBits(
                                uint32_t *bitOffsetTable)
 {
   uint16_t inputBitPattern = 0;
-  int numBitsRead = 0;
+  unsigned int numBitsRead = 0;
   
   const int debugOut = 0;
   const int debugOutShowEmittedSymbols = 0;
@@ -956,9 +976,7 @@ HuffmanUtil::decodeHuffmanBitsFromTables(
         printf("table2Pattern input bit pattern %s : binary length %d\n", get_code_bits_as_string(table2Pattern, table2BitNum).c_str(), table2BitNum);
       }
 
-      
-      // FIXME: const instead of function call to pow() ?
-      int offset = ((int)hls.symbol) * (int)pow(2,table2BitNum);
+      int offset = ((int)hls.symbol) * (int)HUFF_TABLE2_SIZE;
       int offsetPlusPattern = offset + table2Pattern;
 
       if (debugOut) {
@@ -1080,7 +1098,7 @@ HuffmanUtil::encodeHuffman(
 //    outHuffCodesPtr[i] = code;
 //  }
 
-  outHuffCodes = huffmanCodeBytes;
+  outHuffCodes = std::move(huffmanCodeBytes);
   
   // Process the input data in terms of NxN blocks, so that a given width x height
   // combination is split into blocks. Then determine the positions of each block

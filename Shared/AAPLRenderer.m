@@ -24,7 +24,7 @@ Implementation of renderer class which perfoms Metal setup and per frame renderi
 
 #import "Util.h"
 
-const static unsigned int blockDim = BLOCK_DIM;
+const static unsigned int blockDim = HUFF_BLOCK_DIM;
 
 @interface AAPLRenderer ()
 
@@ -1820,7 +1820,7 @@ const static unsigned int blockDim = BLOCK_DIM;
         NSData *expectedData = _huffInputBytes;
         assert(expectedData);
         uint8_t *expectedDataPtr = (uint8_t *) expectedData.bytes;
-        const int numBytes = (int)expectedData.length * sizeof(uint8_t);
+        //const int numBytes = (int)expectedData.length * sizeof(uint8_t);
         
         for ( int row = 0; row < height; row++ ) {
           for ( int col = 0; col < width; col++ ) {

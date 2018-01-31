@@ -109,7 +109,7 @@ typedef enum AAPLHuffmanTextureIndex
 #define IMPL_DELTAS_BEFORE_HUFF_ENCODING
 //#define IMPL_DELTAS_AND_INIT_ZERO_DELTA_BEFORE_HUFF_ENCODING
 
-#define BLOCK_DIM 8
+#define HUFF_BLOCK_DIM 8
 
 // On both an A7 and A10 device, a primary table of 8 bits
 // and a secondary table that is 8 bits seems to result
@@ -120,5 +120,6 @@ typedef enum AAPLHuffmanTextureIndex
 #define HUFF_TABLE1_NUM_BITS (8)
 #define HUFF_TABLE2_NUM_BITS (8)
 #define HUFF_TABLE1_SIZE ((0xFFFF >> (16 - HUFF_TABLE1_NUM_BITS)) + 1)
+#define HUFF_TABLE2_SIZE ((0xFFFF >> (16 - HUFF_TABLE2_NUM_BITS)) + 1)
 
 #endif /* ShaderTypes_h */

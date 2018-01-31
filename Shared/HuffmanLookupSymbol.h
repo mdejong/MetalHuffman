@@ -11,4 +11,6 @@ typedef struct {
 
 #define DecodeHuffmanBitsFromTablesCompareToOriginal
 
+#include "AAPLShaderTypes.h"
+
 #endif // HuffLookupSymbol_hpp

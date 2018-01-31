@@ -16,7 +16,7 @@ HuffmanEncoder::HuffmanEncoder() {
   originalInputSizeInBytes = 0;
   
   frequency.resize(2 * MAX_NUM_SYMBOLS);
-  memset(frequency.data(), 0, frequency.size());
+  memset(frequency.data(), 0, frequency.size() * sizeof(int));
 
   leaf_index = ((int*)frequency.data()) + MAX_NUM_SYMBOLS - 1;
   
@@ -35,15 +35,19 @@ HuffmanEncoder::determine_frequency(const vector<uint8_t> & bytes) {
   for (int c = 0; c < MAX_NUM_SYMBOLS; c++) {
     if (frequency[c] > 0) {
       numActiveSymbols += 1;
+//#if defined(DEBUG)
       if ((1)) {
       printf("frequency[%3d] = %8d\n", c, frequency[c]);
       }
+//#endif // DEBUG
     }
   }
   
-  if ((0)) {
+//#if defined(DEBUG)
+  if ((1)) {
       printf("numActiveSymbols = %d\n", numActiveSymbols);
   }
+//#endif // DEBUG
 }
 
 void
@@ -331,7 +335,7 @@ HuffmanEncoder::encode(const vector<uint8_t> & bytes,
   // Write to huffmanCodeBytes
   
   huffmanCodeBytes.clear();
-  huffmanCodeBytes.reserve(bytes.size() * 10);
+  huffmanCodeBytes.reserve(bytes.size());
   
   bitOffsetForSymbols.resize(originalInputSizeInBytes);
   
@@ -347,6 +351,15 @@ HuffmanEncoder::encode(const vector<uint8_t> & bytes,
   }
   
   flush_buffered_bits(huffmanCodeBytes);
+  
+  // The huffman buffer is now flushed to a byte bound,
+  // but because the decoder may need to read as many as
+  // 2 bytes ahead, append 2 more zero bytes so that the
+  // encoded buffer need not be resize at decode time to
+  // support the additional 2 bytes.
+  
+  huffmanCodeBytes.push_back(0);
+  huffmanCodeBytes.push_back(0);
   
   return true;
 }

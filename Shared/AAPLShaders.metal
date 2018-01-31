@@ -452,7 +452,7 @@ cropAndGrayscaleFromTexturesFragmentShader(RasterizerData in [[stage_in]],
                                            texture2d<half, access::read> inTexture [[ texture(0) ]],
                                            constant RenderTargetDimensionsAndBlockDimensionsUniform & rtd [[ buffer(0) ]])
 {
-  const ushort blockDim = BLOCK_DIM;
+  const ushort blockDim = HUFF_BLOCK_DIM;
   
   ushort2 gid = calc_gid_from_frag_norm_coord(ushort2(rtd.width, rtd.height), in.textureCoordinate);
   

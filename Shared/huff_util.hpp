@@ -94,7 +94,7 @@ huff_generate_canonical_table(
 static inline
 vector<uint16_t>
 huff_generate_canonical_codes(
-                              vector<uint8_t> inTable
+                              const vector<uint8_t> & inTable
                               )
 {
   typedef struct {
