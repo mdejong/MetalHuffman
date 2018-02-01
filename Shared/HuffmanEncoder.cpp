@@ -106,6 +106,8 @@ HuffmanEncoder::add_node(int index, int weight) {
 uint16_t
 HuffmanEncoder::encode_one_symbol(int symbol, int & bitWidth)
 {
+  const int dumpSymbolEncoding = 0;
+  
   int node_index;
   stack_top = 0;
   node_index = leaf_index[symbol + 1];
@@ -113,22 +115,31 @@ HuffmanEncoder::encode_one_symbol(int symbol, int & bitWidth)
     stack[stack_top++] = node_index % 2;
     node_index = parent_index[(node_index + 1) / 2];
   }
-  //printf("encoding char %3d as huffman:\n", symbol);
+  if (num_nodes == 1) {
+    stack[0] = 0; // emit single bit "0" as the huffman code
+    stack_top = 1;
+  }
+  if (dumpSymbolEncoding) {
+    printf("encoding char %3d as huffman:\n", symbol);
+  }
   uint16_t code = 0;
   int codei = 0;
   bitWidth = 0;
   while (--stack_top > -1) {
     int bitVal = stack[stack_top];
-    //write_bit(fout, bitVal);
     if (bitVal) {
       assert(codei < 16);
       code |= ((bitVal << 15) >> codei);
     }
-    //printf("%d", bitVal);
+    if (dumpSymbolEncoding) {
+      printf("%d", bitVal);
+    }
     codei += 1;
     bitWidth++;
   }
-  //printf("\n");
+  if (dumpSymbolEncoding) {
+    printf("\n");
+  }
   
   return code;
 }
@@ -143,6 +154,11 @@ HuffmanEncoder::create_canonical_codes_from_tree()
   nonCanonicalSymbolTable.resize(MAX_NUM_SYMBOLS);
   canonicalSymbolTable.resize(MAX_NUM_SYMBOLS);
   bitWidthTable.resize(MAX_NUM_SYMBOLS);
+  
+  if (num_nodes == 1) {
+    // Special case when just 1 node, encode a single symbol as 1
+    stack.resize(1);
+  }
   
   for ( int symbol = 0; symbol < MAX_NUM_SYMBOLS; symbol++ ) {
     if (frequency[symbol] > 0) {
