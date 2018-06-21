@@ -135,17 +135,20 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
   int renderBlockHeight;
 }
 
-// Util function that generates a texture object at a given dimension
+// Util function that generates a texture object at a given dimension.
+// This texture contains 32 bit pixel values with BGRA unsigned byte components.
 
 - (id<MTLTexture>) makeBGRATexture:(CGSize)size pixels:(uint32_t*)pixels
 {
   MTLTextureDescriptor *textureDescriptor = [[MTLTextureDescriptor alloc] init];
+
+  textureDescriptor.textureType = MTLTextureType2D;
   
-  // Indicate that each pixel has a Blue, Green, Red, and Alpha channel,
-  //    each in an 8 bit unnormalized value (0 maps 0.0 while 255 maps to 1.0)
   textureDescriptor.pixelFormat = MTLPixelFormatBGRA8Unorm;
   textureDescriptor.width = (int) size.width;
   textureDescriptor.height = (int) size.height;
+  
+  textureDescriptor.usage = MTLTextureUsageRenderTarget|MTLTextureUsageShaderRead;
   
   // Create our texture object from the device and our descriptor
   id<MTLTexture> texture = [_device newTextureWithDescriptor:textureDescriptor];
@@ -224,12 +227,16 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
 {
   MTLTextureDescriptor *textureDescriptor = [[MTLTextureDescriptor alloc] init];
   
+  textureDescriptor.textureType = MTLTextureType2D;
+  
   // Each value in this texture is an 8 bit integer value in the range (0,255) inclusive
   // represented by a half float
   
   textureDescriptor.pixelFormat = MTLPixelFormatR8Unorm;
   textureDescriptor.width = (int) size.width;
   textureDescriptor.height = (int) size.height;
+  
+  textureDescriptor.usage = MTLTextureUsageRenderTarget|MTLTextureUsageShaderRead;
   
   // Create our texture object from the device and our descriptor
   id<MTLTexture> texture = [_device newTextureWithDescriptor:textureDescriptor];
