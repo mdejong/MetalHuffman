@@ -445,6 +445,87 @@ huffFragmentShaderB8W16(RasterizerData in [[stage_in]],
   return fragOut;
 }
 
+// Huffman compute kernel, this logic executes once for each
+// conceptual 1x1 pixel of "input" and writes 8x8 blocks
+// to the output with BGRA packing of the byte symbol values.
+
+kernel void
+huffB8Kernel(
+             const device uint32_t *blockStartBitOffsetsPtr [[ buffer(0) ]],
+             const device uint8_t *huffBuff [[ buffer(1) ]],
+             constant HuffLookupTable1 & huffSymbolTable1 [[ buffer(2) ]],
+             const device HuffLookupSymbol *huffSymbolTable2 [[ buffer(3) ]],
+             constant RenderTargetDimensionsAndBlockDimensionsUniform & rtd [[ buffer(4) ]],
+             texture2d<half, access::write> outTexture [[texture(0)]],
+             ushort2                        gid         [[thread_position_in_grid]])
+{
+  const ushort blockDim = HUFF_BLOCK_DIM;
+  const ushort numSymbolsPerPixel = 4;
+
+  ushort gidx = gid.x;
+  ushort gidy = gid.y;
+
+  // Current bit offset into huffBuff
+  ushort bitOffset = 0;
+  
+  for ( ushort y = 0; y < blockDim; y++ ) {
+    // Loop over 4 symbols at a time until all
+    // the symbols in a block are consumed.
+    // For an 8x8 block this results in 8
+    // total operations of 4
+    
+    half4 outPixel;
+    
+    for ( ushort x = 0; x < blockDim; x += numSymbolsPerPixel ) {
+      ushort blockOffset = (y * blockDim) + x;
+      
+      // Read huff code based on offset into block
+      
+      // Read 1
+      
+      // Read 2
+      
+      // Read 3
+      
+      // Read 4
+      
+      //const ushort gray = 128.0h;
+      //outPixel = half4(gray/255.0h, gray/255.0h, gray/255.0h, 1.0);
+      
+      half B = (blockOffset+1.0h)/255.0h;
+      half G = (blockOffset+2.0h)/255.0h;
+      half R = (blockOffset+3.0h)/255.0h;
+      half A = (blockOffset+4.0h)/255.0h;
+      outPixel = half4(R, G, B, A);
+     
+      // Adjust gid to correspond to the output coordinates
+      
+      outTexture.write(outPixel, ushort2(gidx, gidy));
+      
+      gidx += 1;
+      
+      // FIXME: flip (gidx, gidy) to next row when x is as large as the
+      // witdth of the output bufer (a constant).
+      
+      ushort outTextureWidth = outTexture.get_width();
+      if (gidx == outTextureWidth) {
+        gidx = 0;
+        gidy += 1;
+      }
+    }
+    
+    //gidy += 1;
+  }
+
+//  const ushort gray = 255.0h;
+  
+  // Write output byte for each emitted symbol, note
+  // that this logic will write BGRA values that contain
+  // 4 bytes per write.
+  
+//  outTexture.write(half4(gray, gray, gray, 1.0), gid);
+}
+
 // Read pixels from multiple textures and zip results back together
 
 fragment half4

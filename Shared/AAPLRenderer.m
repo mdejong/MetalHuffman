@@ -39,37 +39,42 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
     id <MTLDevice> _device;
   
   // 12 and 16 symbol render pipelines
-  id<MTLRenderPipelineState> _render12PipelineState;
-  id<MTLRenderPipelineState> _render16PipelineState;
+  //id<MTLRenderPipelineState> _render12PipelineState;
+  //id<MTLRenderPipelineState> _render16PipelineState;
+  
+  // The compute pipeline will read VLC compressed symbols
+  // and write output blocks to a texture.
+  
+  id<MTLComputePipelineState> _computePipelineState;
   
   // The Metal textures that will hold fragment shader output
 
-  id<MTLTexture> _render12Zeros;
+  //id<MTLTexture> _render12Zeros;
   
-  id<MTLTexture> _render12C0R0;
-  id<MTLTexture> _render12C1R0;
-  id<MTLTexture> _render12C2R0;
-  id<MTLTexture> _render12C3R0;
-  
-  id<MTLTexture> _render12C0R1;
-  id<MTLTexture> _render12C1R1;
-  id<MTLTexture> _render12C2R1;
-  id<MTLTexture> _render12C3R1;
-  
-  id<MTLTexture> _render12C0R2;
-  id<MTLTexture> _render12C1R2;
-  id<MTLTexture> _render12C2R2;
-  id<MTLTexture> _render12C3R2;
-  
-  id<MTLTexture> _render12C0R3;
-  id<MTLTexture> _render12C1R3;
-  id<MTLTexture> _render12C2R3;
-  id<MTLTexture> _render12C3R3;
-
-  id<MTLTexture> _render16C0;
-  id<MTLTexture> _render16C1;
-  id<MTLTexture> _render16C2;
-  id<MTLTexture> _render16C3;
+//  id<MTLTexture> _render12C0R0;
+//  id<MTLTexture> _render12C1R0;
+//  id<MTLTexture> _render12C2R0;
+//  id<MTLTexture> _render12C3R0;
+//
+//  id<MTLTexture> _render12C0R1;
+//  id<MTLTexture> _render12C1R1;
+//  id<MTLTexture> _render12C2R1;
+//  id<MTLTexture> _render12C3R1;
+//
+//  id<MTLTexture> _render12C0R2;
+//  id<MTLTexture> _render12C1R2;
+//  id<MTLTexture> _render12C2R2;
+//  id<MTLTexture> _render12C3R2;
+//
+//  id<MTLTexture> _render12C0R3;
+//  id<MTLTexture> _render12C1R3;
+//  id<MTLTexture> _render12C2R3;
+//  id<MTLTexture> _render12C3R3;
+//
+//  id<MTLTexture> _render16C0;
+//  id<MTLTexture> _render16C1;
+//  id<MTLTexture> _render16C2;
+//  id<MTLTexture> _render16C3;
   
   // This texture will contain the output of each symbol
   // render above with a "slice" that is the height of one
@@ -133,12 +138,16 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
   
   int renderBlockWidth;
   int renderBlockHeight;
+  
+  // Compute kernel dispatch parameters
+  MTLSize _threadgroupSize;
+  MTLSize _threadgroupCount;
 }
 
 // Util function that generates a texture object at a given dimension.
 // This texture contains 32 bit pixel values with BGRA unsigned byte components.
 
-- (id<MTLTexture>) makeBGRATexture:(CGSize)size pixels:(uint32_t*)pixels
+- (id<MTLTexture>) makeBGRATexture:(CGSize)size pixels:(uint32_t*)pixels usage:(MTLTextureUsage)usage
 {
   MTLTextureDescriptor *textureDescriptor = [[MTLTextureDescriptor alloc] init];
 
@@ -148,7 +157,8 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
   textureDescriptor.width = (int) size.width;
   textureDescriptor.height = (int) size.height;
   
-  textureDescriptor.usage = MTLTextureUsageRenderTarget|MTLTextureUsageShaderRead;
+  //textureDescriptor.usage = MTLTextureUsageRenderTarget|MTLTextureUsageShaderRead;
+  textureDescriptor.usage = usage;
   
   // Create our texture object from the device and our descriptor
   id<MTLTexture> texture = [_device newTextureWithDescriptor:textureDescriptor];
@@ -694,7 +704,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
     self = [super init];
     if(self)
     {
-      isCaptureRenderedTextureEnabled = 0;
+      isCaptureRenderedTextureEnabled = 1;
       
       mtkView.depthStencilPixelFormat = MTLPixelFormatInvalid;
       
@@ -728,7 +738,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
 //      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_6x4_NOT_SQUARE;
-//      HuffRenderFrameConfig hcfg = TEST_8x8_IDENT;
+      HuffRenderFrameConfig hcfg = TEST_8x8_IDENT;
 //      HuffRenderFrameConfig hcfg = TEST_16x8_IDENT;
 //      HuffRenderFrameConfig hcfg = TEST_16x16_IDENT;
 //      HuffRenderFrameConfig hcfg = TEST_16x16_IDENT2;
@@ -741,7 +751,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
       //HuffRenderFrameConfig hcfg = TEST_IMAGE1;
       //HuffRenderFrameConfig hcfg = TEST_IMAGE2;
       //HuffRenderFrameConfig hcfg = TEST_IMAGE3;
-      HuffRenderFrameConfig hcfg = TEST_IMAGE4;
+      //HuffRenderFrameConfig hcfg = TEST_IMAGE4;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
@@ -780,38 +790,54 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
         ptr->blockHeight = blockHeight;
       }
       
-      _render_texture = [self makeBGRATexture:CGSizeMake(width,height) pixels:NULL];
+      _render_texture = [self makeBGRATexture:CGSizeMake(width,height) pixels:NULL usage:MTLTextureUsageRenderTarget|MTLTextureUsageShaderRead];
+      
+      // Configure threadgroups, note that a single thread corresponds to an input
+      // texture pixel and one thread will emit  (blockDim * blockDim) pixels
+      
+      {
+        // Set the compute kernel's threadgroup size of 1x1
+        _threadgroupSize = MTLSizeMake(1, 1, 1);
+        
+        // Calculate the number of rows and columns of threadgroups given the width of the input image
+        // Ensure that you cover the entire image (or more) so you process every pixel
+        _threadgroupCount.width  = blockWidth;
+        _threadgroupCount.height = blockHeight;
+        
+        // Since we're only dealing with a 2D data set, set depth to 1
+        _threadgroupCount.depth = 1;
+      }
 
       // Render stages
       
       if ((1)) {
         // Dummy input that is all zeros
-        _render12Zeros = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        
-        _render12C0R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render12C1R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render12C2R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render12C3R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-
-        _render12C0R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render12C1R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render12C2R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render12C3R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-
-        _render12C0R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render12C1R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render12C2R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render12C3R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-
-        _render12C0R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render12C1R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render12C2R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render12C3R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-
-        _render16C0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render16C1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render16C2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-        _render16C3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render12Zeros = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//
+//        _render12C0R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render12C1R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render12C2R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render12C3R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//
+//        _render12C0R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render12C1R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render12C2R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render12C3R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//
+//        _render12C0R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render12C1R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render12C2R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render12C3R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//
+//        _render12C0R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render12C1R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render12C2R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render12C3R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//
+//        _render16C0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render16C1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render16C2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
+//        _render16C3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
 
         // Render into texture that is a multiple of (blockWidth, blockHeight)
         
@@ -826,7 +852,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
         int combinedWidth = blockWidth * combinedNumElemsWidth;
         int combinedHeight = blockHeight * combinedNumElemsHeight;
         
-        _renderCombinedSlices = [self makeBGRATexture:CGSizeMake(combinedWidth, combinedHeight) pixels:NULL];
+        _renderCombinedSlices = [self makeBGRATexture:CGSizeMake(combinedWidth, combinedHeight) pixels:NULL usage:MTLTextureUsageShaderWrite|MTLTextureUsageShaderRead];
       }
       
         // Set up a simple MTLBuffer with our vertices which include texture coordinates
@@ -866,6 +892,25 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
       // Load all the shader files with a metal file extension in the project
       id<MTLLibrary> defaultLibrary = [_device newDefaultLibrary];
 
+      // Compute kernel
+      
+      {
+        id<MTLFunction> kernelFunction = [defaultLibrary newFunctionWithName:@"huffB8Kernel"];
+        assert(kernelFunction);
+        
+        _computePipelineState = [_device newComputePipelineStateWithFunction:kernelFunction
+                                                                       error:&error];
+        if (!_computePipelineState)
+        {
+          // Pipeline State creation could fail if we haven't properly set up our pipeline descriptor.
+          //  If the Metal API validation is enabled, we can find out more information about what
+          //  went wrong.  (Metal API validation is enabled by default when a debug build is run
+          //  from Xcode)
+          NSLog(@"Failed to create compute pipeline state, error %@", error);
+        }
+      }
+      
+      /*
       {
         // Load the vertex function from the library
         id <MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
@@ -897,7 +942,9 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
           NSLog(@"Failed to created pipeline state, error %@", error);
         }
       }
+      */
 
+      /*
       {
         // Load the vertex function from the library
         id <MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
@@ -930,6 +977,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
           NSLog(@"Failed to created pipeline state, error %@", error);
         }
       }
+      */
       
       {
         // Render to texture pipeline
@@ -1040,6 +1088,8 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
 
       [self setupHuffmanEncoding];
       
+      /*
+      
       // Zero out pixels / set to known init state
       
       if ((1))
@@ -1084,6 +1134,8 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
         
         free(pixels);
       }
+      
+      */
       
     } // end of init if block
   
@@ -1164,7 +1216,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
         
         for (int i = 0; i < 4; i++) {
           uint32_t bVal = (v >> (i * 8)) & 0xFF;
-          fprintf(stdout, "%d ", bVal);
+          fprintf(stdout, "%3d ", bVal);
         }
       }
       fprintf(stdout, "\n");
@@ -1184,8 +1236,53 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
   
   // --------------------------------------------------------------------------
 
-  int blockWidth = self->renderBlockWidth;
-  int blockHeight = self->renderBlockHeight;
+  //int blockWidth = self->renderBlockWidth;
+  //int blockHeight = self->renderBlockHeight;
+  
+  // Decode huffman symbols and render whole blocks of output data to a texture
+  
+  {
+  id<MTLComputeCommandEncoder> computeEncoder = [commandBuffer computeCommandEncoder];
+  
+  [computeEncoder setComputePipelineState:_computePipelineState];
+  
+    // No input texture, input values are read from _huffBuff
+    
+  //[computeEncoder setTexture:_inputTexture
+  //                   atIndex:AAPLTextureIndexInput];
+    
+    [computeEncoder setBuffer:_blockStartBitOffsets
+                              offset:0
+                             atIndex:0];
+    
+    // Read only buffer for huffman symbols and huffman lookup table
+    
+    [computeEncoder setBuffer:_huffBuff
+                              offset:0
+                             atIndex:1];
+    
+    [computeEncoder setBuffer:_huffSymbolTable1
+                              offset:0
+                             atIndex:2];
+    
+    [computeEncoder setBuffer:_huffSymbolTable2
+                              offset:0
+                             atIndex:3];
+    
+    [computeEncoder setBuffer:_renderTargetDimensionsAndBlockDimensionsUniform
+                              offset:0
+                             atIndex:4];
+  
+  [computeEncoder setTexture:_renderCombinedSlices
+                     atIndex:0];
+  
+  [computeEncoder dispatchThreadgroups:_threadgroupCount
+                 threadsPerThreadgroup:_threadgroupSize];
+  
+  [computeEncoder endEncoding];
+  }
+  
+  /*
   
   // Render 0, write 12 symbols into 3 textures along with a bits consumed halfword
   
@@ -1567,6 +1664,10 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
       [renderEncoder endEncoding];
     }
   }
+   
+  */
+  
+  /*
   
   // blit the results from the previous shaders into a "slices" texture that is
   // as tall as each block buffer.
@@ -1631,7 +1732,9 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
     [blitEncoder endEncoding];
   }
   
-  // Cropping copy operation from _renderToTexturePipelineState which is unsigned int values
+  */
+  
+  // Cropping copy operation from _renderCombinedSlices which is unsigned int values
   // to _render_texture which contains pixel values. This copy operation will expand single
   // byte values emitted by the huffman decoder as grayscale pixels.
 
@@ -1726,6 +1829,8 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
     
     const int assertOnValueDiff = 1;
     
+    /*
+    
     if (isCaptureRenderedTextureEnabled && 0) {
       
       //[self dump4ByteTexture:_render12Zeros label:@"_render12Zeros"];
@@ -1755,10 +1860,12 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
       [self dump4ByteTexture:_render16C2 label:@"_render16C2"];
       [self dump4ByteTexture:_render16C3 label:@"_render16C3"];
     }
+     
+    */
     
     // Output of block padded shader write operation
     
-    if (isCaptureRenderedTextureEnabled && self.huffRenderFrame.capture && 0) {
+    if (isCaptureRenderedTextureEnabled && self.huffRenderFrame.capture && 1) {
       [self dump4ByteTexture:_renderCombinedSlices label:@"_renderCombinedSlices"];
     }
     
@@ -1778,7 +1885,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
       
       // Dump output words as BGRA
       
-      if ((0)) {
+      if ((1)) {
         // Dump 24 bit values as int
         
         fprintf(stdout, "_render_texture\n");
