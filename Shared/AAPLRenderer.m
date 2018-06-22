@@ -811,46 +811,18 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
       // Render stages
       
       if ((1)) {
-        // Dummy input that is all zeros
-//        _render12Zeros = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//
-//        _render12C0R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render12C1R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render12C2R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render12C3R0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//
-//        _render12C0R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render12C1R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render12C2R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render12C3R1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//
-//        _render12C0R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render12C1R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render12C2R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render12C3R2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//
-//        _render12C0R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render12C1R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render12C2R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render12C3R3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//
-//        _render16C0 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render16C1 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render16C2 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-//        _render16C3 = [self makeBGRATexture:CGSizeMake(blockWidth, blockHeight) pixels:NULL];
-
-        // Render into texture that is a multiple of (blockWidth, blockHeight)
+        // Render into a BGRA texture that is (blockWidth * blockDim / 4, blockHeight * blockDim)
         
-        int combinedNumElemsWidth = 4096 / 512;
-        int maxLineWidth = blockWidth * combinedNumElemsWidth;
-        
-        int combinedNumElemsHeight = (blockWidth * 16) / maxLineWidth;
-        if (((blockWidth * 16) % maxLineWidth) != 0) {
-          combinedNumElemsHeight++;
-        }
+//        int combinedNumElemsWidth = 4096 / 512;
+//        int maxLineWidth = blockWidth * combinedNumElemsWidth;
+//
+//        int combinedNumElemsHeight = (blockWidth * 16) / maxLineWidth;
+//        if (((blockWidth * 16) % maxLineWidth) != 0) {
+//          combinedNumElemsHeight++;
+//        }
 
-        int combinedWidth = blockWidth * combinedNumElemsWidth;
-        int combinedHeight = blockHeight * combinedNumElemsHeight;
+        int combinedWidth = (blockWidth * blockDim) / 4;
+        int combinedHeight = blockHeight * blockDim;
         
         _renderCombinedSlices = [self makeBGRATexture:CGSizeMake(combinedWidth, combinedHeight) pixels:NULL usage:MTLTextureUsageShaderWrite|MTLTextureUsageShaderRead];
       }
@@ -1926,7 +1898,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
         fprintf(stdout, "done\n");
       }
       
-      if ((0)) {
+      if ((1)) {
         // Dump 24 bit values as int
         
         fprintf(stdout, "expected symbols\n");

@@ -448,6 +448,8 @@ huffFragmentShaderB8W16(RasterizerData in [[stage_in]],
 // Huffman compute kernel, this logic executes once for each
 // conceptual 1x1 pixel of "input" and writes 8x8 blocks
 // to the output with BGRA packing of the byte symbol values.
+// For example, a 16x8 input with 8x8 blocks would generate
+// a 4x8 combined BGRA output texture.
 
 kernel void
 huffB8Kernel(
@@ -461,10 +463,23 @@ huffB8Kernel(
 {
   const ushort blockDim = HUFF_BLOCK_DIM;
   const ushort numSymbolsPerPixel = 4;
+  
+  const ushort numPixelsInBlockWidth = HUFF_BLOCK_DIM / numSymbolsPerPixel;
+  //ushort outTextureWidth = outTexture.get_width();
 
-  ushort gidx = gid.x;
-  ushort gidy = gid.y;
+  // (gidx, gidy) corresponds is the root coordinate of the output BGRA texture
+  ushort gidx = (gid.x * blockDim) / numSymbolsPerPixel;
+  ushort gidy = (gid.y * blockDim);
 
+  ushort gidxMin = gidx;
+  ushort gidxMax = gidx + numPixelsInBlockWidth;
+
+  // Calculate blocki in terms of the number of whole blocks in the output texture
+  // where each pixel corresponds to one block.
+  
+  const ushort numWholeBlocksInWidth = rtd.blockWidth;
+  const int blocki = (int(gid.y) * numWholeBlocksInWidth) + gid.x;
+  
   // Current bit offset into huffBuff
   ushort bitOffset = 0;
   
@@ -492,10 +507,17 @@ huffB8Kernel(
       //const ushort gray = 128.0h;
       //outPixel = half4(gray/255.0h, gray/255.0h, gray/255.0h, 1.0);
       
-      half B = (blockOffset+1.0h)/255.0h;
-      half G = (blockOffset+2.0h)/255.0h;
-      half R = (blockOffset+3.0h)/255.0h;
-      half A = (blockOffset+4.0h)/255.0h;
+      // See values for (gidx, gidy)
+//      half B = gidx/255.0h;
+//      half G = gidy/255.0h;
+//      half R = 0.0h/255.0h;
+//      half A = 255.0h/255.0h;
+      
+      half B = (blocki+blockOffset+0.0h)/255.0h;
+      half G = (blocki+blockOffset+1.0h)/255.0h;
+      half R = (blocki+blockOffset+2.0h)/255.0h;
+      half A = (blocki+blockOffset+3.0h)/255.0h;
+      
       outPixel = half4(R, G, B, A);
      
       // Adjust gid to correspond to the output coordinates
@@ -504,26 +526,12 @@ huffB8Kernel(
       
       gidx += 1;
       
-      // FIXME: flip (gidx, gidy) to next row when x is as large as the
-      // witdth of the output bufer (a constant).
-      
-      ushort outTextureWidth = outTexture.get_width();
-      if (gidx == outTextureWidth) {
-        gidx = 0;
+      if (gidx == gidxMax) {
+        gidx = gidxMin;
         gidy += 1;
       }
-    }
-    
-    //gidy += 1;
+    } // end x loop
   }
-
-//  const ushort gray = 255.0h;
-  
-  // Write output byte for each emitted symbol, note
-  // that this logic will write BGRA values that contain
-  // 4 bytes per write.
-  
-//  outTexture.write(half4(gray, gray, gray, 1.0), gid);
 }
 
 // Read pixels from multiple textures and zip results back together
@@ -537,25 +545,31 @@ cropAndGrayscaleFromTexturesFragmentShader(RasterizerData in [[stage_in]],
   
   ushort2 gid = calc_gid_from_frag_norm_coord(ushort2(rtd.width, rtd.height), in.textureCoordinate);
   
+//  ushort gidx = gid.x / 4;
+//  ushort gidy = gid.y;
+  
   // Calculate blocki in terms of the number of whole blocks in the input texture.
   
-  ushort2 blockRoot = gid / blockDim;
-  ushort2 blockRootCoords = blockRoot * blockDim;
-  ushort2 offsetFromBlockRootCoords = gid - blockRootCoords;
-  ushort offsetFromBlockRoot = (offsetFromBlockRootCoords.y * blockDim) + offsetFromBlockRootCoords.x;
-  ushort slice = (offsetFromBlockRoot / 4) % 16;
+//  ushort2 blockRoot = gid / blockDim;
+//  ushort2 blockRootCoords = blockRoot * blockDim;
+//  ushort2 offsetFromBlockRootCoords = gid - blockRootCoords;
+//  ushort offsetFromBlockRoot = (offsetFromBlockRootCoords.y * blockDim) + offsetFromBlockRootCoords.x;
+//  ushort slice = (offsetFromBlockRoot / 4) % 16;
 
-  const ushort blockWidth = rtd.blockWidth;
-  const ushort blockHeight = rtd.blockHeight;
-  const ushort maxNumBlocksInColumn = 8;
-  ushort2 sliceCoord = ushort2(slice % maxNumBlocksInColumn, slice / maxNumBlocksInColumn);
+//  const ushort blockWidth = rtd.blockWidth;
+//  const ushort blockHeight = rtd.blockHeight;
+  //const ushort maxNumBlocksInColumn = 8;
+  //ushort2 sliceCoord = ushort2(slice % maxNumBlocksInColumn, slice / maxNumBlocksInColumn);
   
-  ushort2 inCoords = blockRoot + ushort2(sliceCoord.x * blockWidth, sliceCoord.y * blockHeight);
+  //ushort2 sliceCoord = ushort2(slice % maxNumBlocksInColumn, slice / maxNumBlocksInColumn);
+  //ushort2 inCoords = blockRoot + ushort2(sliceCoord.x * blockWidth, sliceCoord.y * blockHeight);
+  
+  ushort2 inCoords = ushort2(gid.x / 4, gid.y);
   half4 inHalf4 = inTexture.read(inCoords);
   
   // For (0, 1, 2, 3, 0, 1, 2, 3, ...) choose (R, G, B, A)
   
-  ushort remXOf4 = offsetFromBlockRoot % 4;
+  ushort remXOf4 = gid.x % 4;
   
 //  This logic shows a range bug on A7
 //  half4 reorder4 = half4(inHalf4.b, inHalf4.g, inHalf4.r, inHalf4.a);

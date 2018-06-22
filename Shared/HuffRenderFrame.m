@@ -308,6 +308,12 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
                             @40, @41, @44, @45,  @50, @51, @54, @55,
                             ];
         
+//        NSMutableArray *values = [NSMutableArray array];
+//
+//        for ( int i = 0; i < 64; i++ ) {
+//          [values addObject:@(i)];
+//        }
+        
         renderFrame.inputData = [Util bytesArrayToData:values];
       }
       
