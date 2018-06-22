@@ -111,6 +111,44 @@ typedef enum AAPLHuffmanTextureIndex
 
 #define HUFF_BLOCK_DIM 8
 
+/*
+
+Compute kernel dimensions
+ 
+4x4
+
+inNumBytes    3145728
+outNumBytes   2034638
+
+8x8
+
+inNumBytes    3145728
+outNumBytes   1923390
+
+12 x 12
+
+inNumBytes    3151872
+outNumBytes   1898629
+
+16 x 16
+
+inNumBytes    3145728
+outNumBytes   1882155
+
+32 x 32
+
+inNumBytes    3145728
+outNumBytes   1865541
+ 
+(reduced compute shader performance below this point)
+ 
+64 x 64
+
+inNumBytes    3145728
+outNumBytes   1858362
+ 
+*/
+
 // On both an A7 and A10 device, a primary table of 8 bits
 // and a secondary table that is 8 bits seems to result
 // in the best performance. T1 table sizes of 7,9,10,11
