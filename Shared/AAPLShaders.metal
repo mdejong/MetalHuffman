@@ -239,7 +239,7 @@ ushort2 calc_gid_from_frag_norm_coord(const ushort2 dims, const float2 textureCo
 
 // This function implements a single step of a huffman symbol decode operation
 
-half decode_one_huffman_symbol(
+uint8_t decode_one_huffman_symbol(
                                  const uint numBitsReadForBlockRoot,
                                  thread ushort & numBitsRead,
                                  thread ushort & prevSymbol,
@@ -265,184 +265,7 @@ half decode_one_huffman_symbol(
   ushort outSymbol = hls.symbol;
 #endif // IMPL_DELTAS_BEFORE_HUFF_ENCODING
   
-  return outSymbol/255.0h;
-}
-
-// A 12 symbol huff render stage will map a single output pixel
-// (X,Y) location to 12 byte symbols in 3 BGRA pixels. This
-// shader will need to be invoked 4 times to render 48 pixels.
-
-struct HuffFragmentOutput12 {
-  half4 c0 [[ color(0) ]];
-  half4 c1 [[ color(1) ]];
-  half4 c2 [[ color(2) ]];
-  half4 numBitsRead [[ color(3) ]];
-};
-
-// A 16 symbol huff render stage will map a single output pixel
-// (X,Y) location to 16 byte symbols.
-
-struct HuffFragmentOutput16 {
-  half4 c0 [[ color(0) ]];
-  half4 c1 [[ color(1) ]];
-  half4 c2 [[ color(2) ]];
-  half4 c3 [[ color(3) ]];
-};
-
-fragment HuffFragmentOutput12
-huffFragmentShaderB8W12(RasterizerData in [[stage_in]],
-                        texture2d<half, access::read> inBitsReadTexture  [[texture(0)]],
-                        const device uint32_t *blockStartBitOffsetsPtr [[ buffer(0) ]],
-                        const device uint8_t *huffBuff [[ buffer(1) ]],
-                        constant HuffLookupTable1 & huffSymbolTable1 [[ buffer(2) ]],
-                        const device HuffLookupSymbol *huffSymbolTable2 [[ buffer(3) ]],
-                        constant RenderTargetDimensionsAndBlockDimensionsUniform & rtd [[ buffer(4) ]]
-                        )
-{
-  const ushort numWholeBlocksInWidth = rtd.blockWidth;
-  ushort2 gid = calc_gid_from_frag_norm_coord(ushort2(rtd.blockWidth, rtd.blockHeight), in.textureCoordinate);
-
-  HuffFragmentOutput12 fragOut;
-  
-  // Calculate blocki in terms of the number of whole blocks in the output texture
-  // where each pixel corresponds to one block.
-  
-  const int blocki = (int(gid.y) * numWholeBlocksInWidth) + gid.x;
-  
-  // Lookup the starting number of bits offset for each pixel in this block
-
-  half4 bitsRead4 = inBitsReadTexture.read(gid);
-  ushort2 bitsReadInt2 = ushort2(round(bitsRead4.b * 255.0h), round(bitsRead4.g * 255.0h));
-  ushort bitsReadPrev = (bitsReadInt2.y << 8) | bitsReadInt2.x;
-  
-  const uint numBitsReadForBlockRoot = blockStartBitOffsetsPtr[blocki];
-  
-  // Init running bit counter for the block
-  
-  ushort numBitsRead = bitsReadPrev;
-  
-#if defined(IMPL_DELTAS_BEFORE_HUFF_ENCODING)
-  ushort prevSymbol = round(bitsRead4.r  * 255.0h);
-#else
-#endif // IMPL_DELTAS_BEFORE_HUFF_ENCODING
-  
-  half4 hc;
-  
-  // renderStep = 0,1,2,3
-  
-  hc.b = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.g = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.r = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.a = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  
-  fragOut.c0 = hc;
-  
-  // renderStep = 4,5,6,7
-  
-  hc.b = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.g = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.r = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.a = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  
-  fragOut.c1 = hc;
-
-  // renderStep = 8,9,10,11
-  
-  hc.b = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.g = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.r = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.a = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-
-  fragOut.c2 = hc;
-
-  // Emit 16 bit numBitsRead in BG components
-  // Emit 8 bit prev symbol value in R component
-  
-  hc = half4(prevSymbol/255.0h, ((numBitsRead >> 8) & 0xFF)/255.0h, (numBitsRead & 0xFF)/255.0h, 1.0h);
-  
-  fragOut.numBitsRead = hc;
-  
-  return fragOut;
-}
-
-fragment HuffFragmentOutput16
-huffFragmentShaderB8W16(RasterizerData in [[stage_in]],
-                        texture2d<half, access::read> inBitsReadTexture  [[texture(0)]],
-                        const device uint32_t *blockStartBitOffsetsPtr [[ buffer(0) ]],
-                        const device uint8_t *huffBuff [[ buffer(1) ]],
-                        constant HuffLookupTable1 & huffSymbolTable1 [[ buffer(2) ]],
-                        const device HuffLookupSymbol *huffSymbolTable2 [[ buffer(3) ]],
-                        constant RenderTargetDimensionsAndBlockDimensionsUniform & rtd [[ buffer(4) ]]
-                        )
-{
-  const ushort numWholeBlocksInWidth = rtd.blockWidth;
-  ushort2 gid = calc_gid_from_frag_norm_coord(ushort2(rtd.blockWidth, rtd.blockHeight), in.textureCoordinate);
-  
-  HuffFragmentOutput16 fragOut;
-  
-  // Calculate blocki in terms of the number of whole blocks in the output texture
-  // where each pixel corresponds to one block.
-  
-  const int blocki = (int(gid.y) * numWholeBlocksInWidth) + gid.x;
-  
-  // Lookup the starting number of bits offset for each pixel in this block
-  
-  half4 bitsRead4 = inBitsReadTexture.read(gid);
-  ushort2 bitsReadInt2 = ushort2(round(bitsRead4.b * 255.0h), round(bitsRead4.g * 255.0h));
-  ushort bitsReadPrev = (bitsReadInt2.y << 8) | bitsReadInt2.x;
-  
-  const uint numBitsReadForBlockRoot = blockStartBitOffsetsPtr[blocki];
-  
-  // Init running bit counter for the block
-  
-  ushort numBitsRead = bitsReadPrev;
-  
-#if defined(IMPL_DELTAS_BEFORE_HUFF_ENCODING)
-  ushort prevSymbol = round(bitsRead4.r  * 255.0h);
-#else
-#endif // IMPL_DELTAS_BEFORE_HUFF_ENCODING
-  
-  half4 hc;
-  
-  // renderStep = 0,1,2,3
-  
-  hc.b = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.g = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.r = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.a = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  
-  fragOut.c0 = hc;
-  
-  // renderStep = 4,5,6,7
-  
-  hc.b = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.g = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.r = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.a = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  
-  fragOut.c1 = hc;
-  
-  // renderStep = 8,9,10,11
-  
-  hc.b = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.g = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.r = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.a = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  
-  fragOut.c2 = hc;
-
-  // renderStep = 12,13,14,15
-  
-  hc.b = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.g = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.r = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  hc.a = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-  
-  fragOut.c3 = hc;
-  
-  // Note that numBitsRead and prevSymbol are not stored by this shader
-  
-  return fragOut;
+  return outSymbol;
 }
 
 // Huffman compute kernel, this logic executes once for each
@@ -481,16 +304,38 @@ huffB8Kernel(
   ushort numBitsRead = 0;
   ushort prevSymbol = 0;
   
+  // Define a type that is the number of bytes in a row
+  
+  typedef struct {
+    uint8_t row[4];
+  } FourBytes;
+
+  FourBytes rowCache[numPixelsInBlockWidth];
+  
   for ( ushort y = 0; y < blockDim; y++ ) {
     // Decompress 4 symbols at a time and then write as a 32 bit BGRA pixel
     
     for ( ushort x = 0; x < numPixelsInBlockWidth; x++ ) {
       // Read huff code based on offset into block
       
-      half B = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-      half G = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-      half R = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
-      half A = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
+      uint8_t B = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
+      uint8_t G = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
+      uint8_t R = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
+      uint8_t A = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
+      
+      FourBytes fb;
+      
+      fb.row[0] = B;
+      fb.row[1] = G;
+      fb.row[2] = R;
+      fb.row[3] = A;
+      
+      rowCache[x] = fb;
+      
+//      rowCache[x+0] = B;
+//      rowCache[x+1] = G;
+//      rowCache[x+2] = R;
+//      rowCache[x+3] = A;
       
       // See values for (gidx, gidy)
 //      half B = gidx/255.0h;
@@ -503,8 +348,45 @@ huffB8Kernel(
 //      half R = (blocki+blockOffset+2.0h)/255.0h;
 //      half A = (blocki+blockOffset+3.0h)/255.0h;
       
-      half4 outPixel = half4(R, G, B, A);
+      //half4 outPixel = half4(R, G, B, A);
+      
+      //rowCache[x] = outPixel;
      
+      // Adjust gid to correspond to the output coordinates
+      
+      //outTexture.write(outPixel, ushort2(gidx+x, gidy+y));
+    } // end x loop
+    
+    for ( ushort x = 0; x < numPixelsInBlockWidth; x++ ) {
+//      half B = rowCache[x+0];
+//      half G = rowCache[x+1];
+//      half R = rowCache[x+2];
+//      half A = rowCache[x+3];
+      
+      // See values for (gidx, gidy)
+      //      half B = gidx/255.0h;
+      //      half G = gidy/255.0h;
+      //      half R = 0.0h/255.0h;
+      //      half A = 255.0h/255.0h;
+      
+      //      half B = (blocki+blockOffset+0.0h)/255.0h;
+      //      half G = (blocki+blockOffset+1.0h)/255.0h;
+      //      half R = (blocki+blockOffset+2.0h)/255.0h;
+      //      half A = (blocki+blockOffset+3.0h)/255.0h;
+      
+      //half4 outPixel = half4(R, G, B, A);
+      
+      FourBytes fb = rowCache[x];
+      
+      uint8_t B = fb.row[0];
+      uint8_t G = fb.row[1];
+      uint8_t R = fb.row[2];
+      uint8_t A = fb.row[3];
+      
+      half4 outPixel = half4(R, G, B, A);
+      //outPixel /= 255.0h;
+      outPixel *= (1.0h / 255.0h);
+      
       // Adjust gid to correspond to the output coordinates
       
       outTexture.write(outPixel, ushort2(gidx+x, gidy+y));
