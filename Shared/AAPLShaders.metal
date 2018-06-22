@@ -465,13 +465,10 @@ huffB8Kernel(
   const ushort numSymbolsPerPixel = 4;
   
   const ushort numPixelsInBlockWidth = HUFF_BLOCK_DIM / numSymbolsPerPixel;
-  //ushort outTextureWidth = outTexture.get_width();
 
   // (gidx, gidy) corresponds is the root coordinate of the output BGRA texture
-  ushort gidx = (gid.x * blockDim) / numSymbolsPerPixel;
-  ushort gidy = (gid.y * blockDim);
-
-  ushort gidxMin = gidx;
+  const ushort gidx = (gid.x * blockDim) / numSymbolsPerPixel;
+  const ushort gidy = (gid.y * blockDim);
 
   // Calculate blocki in terms of the number of whole blocks in the output texture
   // where each pixel corresponds to one block.
@@ -485,13 +482,7 @@ huffB8Kernel(
   ushort prevSymbol = 0;
   
   for ( ushort y = 0; y < blockDim; y++ ) {
-    // Loop over 4 symbols at a time until all
-    // the symbols in a block are consumed.
-    // For an 8x8 block this results means
-    // 2 pixel writes for each row or a total
-    // of 16 32 bit writes.
-    
-    half4 outPixel;
+    // Decompress 4 symbols at a time and then write as a 32 bit BGRA pixel
     
     for ( ushort x = 0; x < numPixelsInBlockWidth; x++ ) {
       // Read huff code based on offset into block
@@ -512,18 +503,11 @@ huffB8Kernel(
 //      half R = (blocki+blockOffset+2.0h)/255.0h;
 //      half A = (blocki+blockOffset+3.0h)/255.0h;
       
-      outPixel = half4(R, G, B, A);
+      half4 outPixel = half4(R, G, B, A);
      
       // Adjust gid to correspond to the output coordinates
       
-      outTexture.write(outPixel, ushort2(gidx, gidy));
-      
-      gidx += 1;
-      
-      if (x == (numPixelsInBlockWidth-1)) {
-        gidx = gidxMin;
-        gidy += 1;
-      }
+      outTexture.write(outPixel, ushort2(gidx+x, gidy+y));
     } // end x loop
   }
   
