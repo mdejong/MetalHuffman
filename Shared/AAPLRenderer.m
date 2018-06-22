@@ -738,9 +738,9 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
 //      HuffRenderFrameConfig hcfg = TEST_4x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_2x8_INCREASING1;
 //      HuffRenderFrameConfig hcfg = TEST_6x4_NOT_SQUARE;
-      HuffRenderFrameConfig hcfg = TEST_8x8_IDENT;
+//      HuffRenderFrameConfig hcfg = TEST_8x8_IDENT;
 //      HuffRenderFrameConfig hcfg = TEST_16x8_IDENT;
-//      HuffRenderFrameConfig hcfg = TEST_16x16_IDENT;
+      HuffRenderFrameConfig hcfg = TEST_16x16_IDENT;
 //      HuffRenderFrameConfig hcfg = TEST_16x16_IDENT2;
 //      HuffRenderFrameConfig hcfg = TEST_16x16_IDENT3;
       

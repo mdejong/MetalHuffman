@@ -472,7 +472,7 @@ huffB8Kernel(
   ushort gidy = (gid.y * blockDim);
 
   ushort gidxMin = gidx;
-  ushort gidxMax = gidx + numPixelsInBlockWidth;
+  //ushort gidxMax = gidx + numPixelsInBlockWidth;
 
   // Calculate blocki in terms of the number of whole blocks in the output texture
   // where each pixel corresponds to one block.
@@ -480,8 +480,13 @@ huffB8Kernel(
   const ushort numWholeBlocksInWidth = rtd.blockWidth;
   const int blocki = (int(gid.y) * numWholeBlocksInWidth) + gid.x;
   
+  // Init running bit counter for the block to zero
+  const uint numBitsReadForBlockRoot = blockStartBitOffsetsPtr[blocki];
+  ushort numBitsRead = 0;
+  ushort prevSymbol = 0;
+  
   // Current bit offset into huffBuff
-  ushort bitOffset = 0;
+//  ushort bitOffset = 0;
   
   for ( ushort y = 0; y < blockDim; y++ ) {
     // Loop over 4 symbols at a time until all
@@ -491,21 +496,13 @@ huffB8Kernel(
     
     half4 outPixel;
     
-    for ( ushort x = 0; x < blockDim; x += numSymbolsPerPixel ) {
-      ushort blockOffset = (y * blockDim) + x;
-      
+    for ( ushort x = 0; x < numPixelsInBlockWidth; x++ ) {
       // Read huff code based on offset into block
       
-      // Read 1
-      
-      // Read 2
-      
-      // Read 3
-      
-      // Read 4
-      
-      //const ushort gray = 128.0h;
-      //outPixel = half4(gray/255.0h, gray/255.0h, gray/255.0h, 1.0);
+      half B = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
+      half G = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
+      half R = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
+      half A = decode_one_huffman_symbol(numBitsReadForBlockRoot, numBitsRead, prevSymbol, huffBuff, huffSymbolTable1, huffSymbolTable2);
       
       // See values for (gidx, gidy)
 //      half B = gidx/255.0h;
@@ -513,10 +510,10 @@ huffB8Kernel(
 //      half R = 0.0h/255.0h;
 //      half A = 255.0h/255.0h;
       
-      half B = (blocki+blockOffset+0.0h)/255.0h;
-      half G = (blocki+blockOffset+1.0h)/255.0h;
-      half R = (blocki+blockOffset+2.0h)/255.0h;
-      half A = (blocki+blockOffset+3.0h)/255.0h;
+//      half B = (blocki+blockOffset+0.0h)/255.0h;
+//      half G = (blocki+blockOffset+1.0h)/255.0h;
+//      half R = (blocki+blockOffset+2.0h)/255.0h;
+//      half A = (blocki+blockOffset+3.0h)/255.0h;
       
       outPixel = half4(R, G, B, A);
      
@@ -526,7 +523,12 @@ huffB8Kernel(
       
       gidx += 1;
       
-      if (gidx == gidxMax) {
+//      if (gidx == gidxMax) {
+//        gidx = gidxMin;
+//        gidy += 1;
+//      }
+      
+      if (x == (numPixelsInBlockWidth-1)) {
         gidx = gidxMin;
         gidy += 1;
       }
