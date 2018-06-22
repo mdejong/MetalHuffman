@@ -704,7 +704,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
     self = [super init];
     if(self)
     {
-      isCaptureRenderedTextureEnabled = 1;
+      isCaptureRenderedTextureEnabled = 0;
       
       mtkView.depthStencilPixelFormat = MTLPixelFormatInvalid;
       
@@ -740,7 +740,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
 //      HuffRenderFrameConfig hcfg = TEST_6x4_NOT_SQUARE;
 //      HuffRenderFrameConfig hcfg = TEST_8x8_IDENT;
 //      HuffRenderFrameConfig hcfg = TEST_16x8_IDENT;
-      HuffRenderFrameConfig hcfg = TEST_16x16_IDENT;
+//      HuffRenderFrameConfig hcfg = TEST_16x16_IDENT;
 //      HuffRenderFrameConfig hcfg = TEST_16x16_IDENT2;
 //      HuffRenderFrameConfig hcfg = TEST_16x16_IDENT3;
       
@@ -751,7 +751,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
       //HuffRenderFrameConfig hcfg = TEST_IMAGE1;
       //HuffRenderFrameConfig hcfg = TEST_IMAGE2;
       //HuffRenderFrameConfig hcfg = TEST_IMAGE3;
-      //HuffRenderFrameConfig hcfg = TEST_IMAGE4;
+      HuffRenderFrameConfig hcfg = TEST_IMAGE4;
       
       HuffRenderFrame *renderFrame = [HuffRenderFrame renderFrameForConfig:hcfg];
       
@@ -1801,43 +1801,9 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
     
     const int assertOnValueDiff = 1;
     
-    /*
-    
-    if (isCaptureRenderedTextureEnabled && 0) {
-      
-      //[self dump4ByteTexture:_render12Zeros label:@"_render12Zeros"];
-      
-      [self dump4ByteTexture:_render12C0R0 label:@"_render12C0R0"];
-      [self dump4ByteTexture:_render12C1R0 label:@"_render12C1R0"];
-      [self dump4ByteTexture:_render12C2R0 label:@"_render12C2R0"];
-      [self dump4ByteTexture:_render12C3R0 label:@"_render12C3R0 (bits used)"];
-      
-      [self dump4ByteTexture:_render12C0R1 label:@"_render12C0R1"];
-      [self dump4ByteTexture:_render12C1R1 label:@"_render12C1R1"];
-      [self dump4ByteTexture:_render12C2R1 label:@"_render12C2R1"];
-      [self dump4ByteTexture:_render12C3R1 label:@"_render12C3R1 (bits used)"];
-      
-      [self dump4ByteTexture:_render12C0R2 label:@"_render12C0R2"];
-      [self dump4ByteTexture:_render12C1R2 label:@"_render12C1R2"];
-      [self dump4ByteTexture:_render12C2R2 label:@"_render12C2R2"];
-      [self dump4ByteTexture:_render12C3R2 label:@"_render12C3R2 (bits used)"];
-      
-      [self dump4ByteTexture:_render12C0R2 label:@"_render12C0R3"];
-      [self dump4ByteTexture:_render12C1R2 label:@"_render12C1R3"];
-      [self dump4ByteTexture:_render12C2R2 label:@"_render12C2R3"];
-      [self dump4ByteTexture:_render12C3R2 label:@"_render12C3R3 (bits used)"];
-      
-      [self dump4ByteTexture:_render16C0 label:@"_render16C0"];
-      [self dump4ByteTexture:_render16C1 label:@"_render16C1"];
-      [self dump4ByteTexture:_render16C2 label:@"_render16C2"];
-      [self dump4ByteTexture:_render16C3 label:@"_render16C3"];
-    }
-     
-    */
-    
     // Output of block padded shader write operation
     
-    if (isCaptureRenderedTextureEnabled && self.huffRenderFrame.capture && 1) {
+    if (isCaptureRenderedTextureEnabled && self.huffRenderFrame.capture && 0) {
       [self dump4ByteTexture:_renderCombinedSlices label:@"_renderCombinedSlices"];
     }
     
@@ -1857,7 +1823,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
       
       // Dump output words as BGRA
       
-      if ((1)) {
+      if ((0)) {
         // Dump 24 bit values as int
         
         fprintf(stdout, "_render_texture\n");
@@ -1898,7 +1864,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
         fprintf(stdout, "done\n");
       }
       
-      if ((1)) {
+      if ((0)) {
         // Dump 24 bit values as int
         
         fprintf(stdout, "expected symbols\n");

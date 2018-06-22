@@ -472,7 +472,6 @@ huffB8Kernel(
   ushort gidy = (gid.y * blockDim);
 
   ushort gidxMin = gidx;
-  //ushort gidxMax = gidx + numPixelsInBlockWidth;
 
   // Calculate blocki in terms of the number of whole blocks in the output texture
   // where each pixel corresponds to one block.
@@ -480,19 +479,17 @@ huffB8Kernel(
   const ushort numWholeBlocksInWidth = rtd.blockWidth;
   const int blocki = (int(gid.y) * numWholeBlocksInWidth) + gid.x;
   
-  // Init running bit counter for the block to zero
+  // Init running bit counter for the block to zero, save starting bit offset of the block
   const uint numBitsReadForBlockRoot = blockStartBitOffsetsPtr[blocki];
   ushort numBitsRead = 0;
   ushort prevSymbol = 0;
   
-  // Current bit offset into huffBuff
-//  ushort bitOffset = 0;
-  
   for ( ushort y = 0; y < blockDim; y++ ) {
     // Loop over 4 symbols at a time until all
     // the symbols in a block are consumed.
-    // For an 8x8 block this results in 8
-    // total operations of 4
+    // For an 8x8 block this results means
+    // 2 pixel writes for each row or a total
+    // of 16 32 bit writes.
     
     half4 outPixel;
     
@@ -523,17 +520,14 @@ huffB8Kernel(
       
       gidx += 1;
       
-//      if (gidx == gidxMax) {
-//        gidx = gidxMin;
-//        gidy += 1;
-//      }
-      
       if (x == (numPixelsInBlockWidth-1)) {
         gidx = gidxMin;
         gidy += 1;
       }
     } // end x loop
   }
+  
+  return;
 }
 
 // Read pixels from multiple textures and zip results back together
