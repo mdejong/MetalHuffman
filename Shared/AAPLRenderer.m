@@ -156,7 +156,8 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
   textureDescriptor.pixelFormat = MTLPixelFormatBGRA8Unorm;
   textureDescriptor.width = (int) size.width;
   textureDescriptor.height = (int) size.height;
-  
+
+  //textureDescriptor.usage = MTLTextureUsageShaderWrite|MTLTextureUsageShaderRead;
   //textureDescriptor.usage = MTLTextureUsageRenderTarget|MTLTextureUsageShaderRead;
   textureDescriptor.usage = usage;
   
@@ -233,7 +234,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
 
 // Allocate 8 bit unsigned int texture
 
-- (id<MTLTexture>) make8bitTexture:(CGSize)size bytes:(uint8_t*)bytes
+- (id<MTLTexture>) make8bitTexture:(CGSize)size bytes:(uint8_t*)bytes usage:(MTLTextureUsage)usage
 {
   MTLTextureDescriptor *textureDescriptor = [[MTLTextureDescriptor alloc] init];
   
@@ -246,7 +247,7 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
   textureDescriptor.width = (int) size.width;
   textureDescriptor.height = (int) size.height;
   
-  textureDescriptor.usage = MTLTextureUsageRenderTarget|MTLTextureUsageShaderRead;
+  textureDescriptor.usage = usage;
   
   // Create our texture object from the device and our descriptor
   id<MTLTexture> texture = [_device newTextureWithDescriptor:textureDescriptor];
@@ -558,6 +559,17 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
   
   assert((outBlockOrderSymbolsNumBytes % (blockDim * blockDim)) == 0);
   
+  if ((0)) {
+    // Emit byte deltas as a file in the tmp dir
+    
+    NSString *dumpFilename = [NSString stringWithFormat:@"DumpDeltaInputToHuffman.bytes"];
+    NSString *tmpPath = [NSTemporaryDirectory() stringByAppendingPathComponent:dumpFilename];
+    
+    [outBlockOrderSymbolsData writeToFile:tmpPath atomically:TRUE];
+    
+    NSLog(@"wrote \"%@\" at size %d", tmpPath, (int)outBlockOrderSymbolsData.length);
+  }
+  
   [Huffman encodeHuffman:outBlockOrderSymbolsPtr
               inNumBytes:outBlockOrderSymbolsNumBytes
            outFileHeader:outFileHeader
@@ -571,6 +583,17 @@ const static unsigned int blockDim = HUFF_BLOCK_DIM;
   if ((1)) {
     printf("inNumBytes   %8d\n", outBlockOrderSymbolsNumBytes);
     printf("outNumBytes  %8d\n", (int)outHuffCodes.length);
+  }
+  
+  if ((0)) {
+    // Emit huffman encoded bytes in the tmp dir
+    
+    NSString *dumpFilename = [NSString stringWithFormat:@"DumpHuffmanCodes.bytes"];
+    NSString *tmpPath = [NSTemporaryDirectory() stringByAppendingPathComponent:dumpFilename];
+    
+    [outHuffCodes writeToFile:tmpPath atomically:TRUE];
+    
+    NSLog(@"wrote \"%@\" at size %d", tmpPath, (int)outHuffCodes.length);
   }
   
   // Reparse the canonical header to load symbol table info
