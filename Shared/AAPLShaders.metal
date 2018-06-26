@@ -397,7 +397,11 @@ huffB8Kernel(
   return;
 }
 
-// Read pixels from multiple textures and zip results back together
+// Convert grayscale pixels stores in clumps of 4 (BGRA)
+// as output grayscale BGRA pixels where A = 0xFF and
+// the BGR components are all the same grayscale value.
+// This shader will also crop the output from block dimensions
+// to image dimensions.
 
 fragment half4
 cropAndGrayscaleFromTexturesFragmentShader(RasterizerData in [[stage_in]],
