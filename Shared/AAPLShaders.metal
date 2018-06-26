@@ -164,9 +164,8 @@ huffDecodeSymbol(
   HuffLookupSymbol hls = huffSymbolTable1.table[table1Pattern];
 
   if (hls.bitWidth == 0) {
-    const ushort table2NumElements = pow(2.0h, table2BitNum);
-    ushort offset = hls.symbol * table2NumElements;
-    ushort offsetPlusPattern = table2Pattern + offset;
+    const ushort offset = hls.symbol * HUFF_TABLE2_SIZE;
+    const ushort offsetPlusPattern = table2Pattern + offset;
     hls = huffSymbolTable2[offsetPlusPattern];
   }
 
