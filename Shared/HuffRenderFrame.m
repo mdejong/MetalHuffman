@@ -4,6 +4,8 @@
 
 #include <stdlib.h>
 
+@import ImageIO;
+
 @implementation HuffRenderFrame
 
 // Convert values to a NSData that contains bytes and append to array
@@ -60,6 +62,31 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
   [mArr addObject:expectedData];
 }
 
+// Parse image data contained inside NSData into a CoreGraphic image ref
+
++ (CGImageRef) makeImageFromData:(NSData*)imageData
+{
+  CGImageSourceRef sourceRef;
+  CGImageRef imageRef;
+  
+  // Create image object from src image data.
+  
+  sourceRef = CGImageSourceCreateWithData((__bridge CFDataRef)imageData, NULL);
+  
+  // Make sure the image source exists before continuing
+  
+  if (sourceRef == NULL) {
+    return nil;
+  }
+  
+  // Create an image from the first item in the image source.
+  
+  imageRef = CGImageSourceCreateImageAtIndex(sourceRef, 0, NULL);
+  
+  CFRelease(sourceRef);
+  
+  return imageRef;
+}
 
 // Convert an image to grayscale byte values and return as a NSData
 
@@ -504,15 +531,17 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       NSString* path = [[NSBundle mainBundle] pathForResource:resFilename ofType:nil];
       NSAssert(path, @"path is nil");
       
-      UIImage *img = [UIImage imageWithContentsOfFile:path];
-      assert(img);
+      NSData *imgData = [NSData dataWithContentsOfFile:path];
+      CGImageRef imgRef = [self makeImageFromData:imgData];
       
       // Convert PNG image
       
-      renderFrame.renderWidth = img.size.width;
-      renderFrame.renderHeight = img.size.height;
+      renderFrame.renderWidth = (int) CGImageGetWidth(imgRef);
+      renderFrame.renderHeight = (int) CGImageGetHeight(imgRef);
       
-      renderFrame.inputData = [self convertImageToGrayScale:img.CGImage];
+      renderFrame.inputData = [self convertImageToGrayScale:imgRef];
+      
+      CGImageRelease(imgRef);
       
       break;
     }
@@ -524,16 +553,18 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       NSString* path = [[NSBundle mainBundle] pathForResource:resFilename ofType:nil];
       NSAssert(path, @"path is nil");
       
-      UIImage *img = [UIImage imageWithContentsOfFile:path];
-      assert(img);
+      NSData *imgData = [NSData dataWithContentsOfFile:path];
+      CGImageRef imgRef = [self makeImageFromData:imgData];
       
       // Convert PNG image
       
-      renderFrame.renderWidth = img.size.width;
-      renderFrame.renderHeight = img.size.height;
+      renderFrame.renderWidth = (int) CGImageGetWidth(imgRef);
+      renderFrame.renderHeight = (int) CGImageGetHeight(imgRef);
       
-      renderFrame.inputData = [self convertImageToGrayScale:img.CGImage];
+      renderFrame.inputData = [self convertImageToGrayScale:imgRef];
       
+      CGImageRelease(imgRef);
+
       break;
     }
 
@@ -544,16 +575,18 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       NSString* path = [[NSBundle mainBundle] pathForResource:resFilename ofType:nil];
       NSAssert(path, @"path is nil");
       
-      UIImage *img = [UIImage imageWithContentsOfFile:path];
-      assert(img);
+      NSData *imgData = [NSData dataWithContentsOfFile:path];
+      CGImageRef imgRef = [self makeImageFromData:imgData];
       
       // Convert PNG image
       
-      renderFrame.renderWidth = img.size.width;
-      renderFrame.renderHeight = img.size.height;
+      renderFrame.renderWidth = (int) CGImageGetWidth(imgRef);
+      renderFrame.renderHeight = (int) CGImageGetHeight(imgRef);
       
-      renderFrame.inputData = [self convertImageToGrayScale:img.CGImage];
+      renderFrame.inputData = [self convertImageToGrayScale:imgRef];
       
+      CGImageRelease(imgRef);
+
       break;
     }
 
@@ -564,16 +597,18 @@ appendXYCoordPixelsAsData(NSMutableArray * mArr, NSArray * values)
       NSString* path = [[NSBundle mainBundle] pathForResource:resFilename ofType:nil];
       NSAssert(path, @"path is nil");
       
-      UIImage *img = [UIImage imageWithContentsOfFile:path];
-      assert(img);
+      NSData *imgData = [NSData dataWithContentsOfFile:path];
+      CGImageRef imgRef = [self makeImageFromData:imgData];
       
       // Convert PNG image
       
-      renderFrame.renderWidth = img.size.width;
-      renderFrame.renderHeight = img.size.height;
+      renderFrame.renderWidth = (int) CGImageGetWidth(imgRef);
+      renderFrame.renderHeight = (int) CGImageGetHeight(imgRef);
       
-      renderFrame.inputData = [self convertImageToGrayScale:img.CGImage];
+      renderFrame.inputData = [self convertImageToGrayScale:imgRef];
       
+      CGImageRelease(imgRef);
+
       break;
     }
   }
