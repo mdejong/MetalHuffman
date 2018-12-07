@@ -78,12 +78,12 @@ vertexShader(uint vertexID [[ vertex_id ]],
 
 // Fill texture with gradient from green to blue as Y axis increases from origin at top left
 
-fragment float4
-fragmentFillShader1(RasterizerData in [[stage_in]],
-                   float4 framebuffer [[color(0)]])
-{
-  return float4(0.0, (1.0 - in.textureCoordinate.y) * framebuffer.x, in.textureCoordinate.y * framebuffer.x, 1.0);
-}
+//fragment float4
+//fragmentFillShader1(RasterizerData in [[stage_in]],
+//                   float4 framebuffer [[color(0)]])
+//{
+//  return float4(0.0, (1.0 - in.textureCoordinate.y) * framebuffer.x, in.textureCoordinate.y * framebuffer.x, 1.0);
+//}
 
 fragment float4
 fragmentFillShader2(RasterizerData in [[stage_in]])

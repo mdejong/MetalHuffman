@@ -31,6 +31,8 @@
 		3AF7EA0A1EB64A46003BB06D /* AAPLRenderer.m in Sources */ = {isa = PBXBuildFile; fileRef = 3AF7E9BF1EB64A46003BB06D /* AAPLRenderer.m */; };
 		3AF7EA0B1EB64A46003BB06D /* AAPLRenderer.m in Sources */ = {isa = PBXBuildFile; fileRef = 3AF7E9BF1EB64A46003BB06D /* AAPLRenderer.m */; };
 		3AF7EA0C1EB64A46003BB06D /* AAPLRenderer.m in Sources */ = {isa = PBXBuildFile; fileRef = 3AF7E9BF1EB64A46003BB06D /* AAPLRenderer.m */; };
+		3C0753AD21BA0B57002F4B95 /* HuffRenderFrame.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CE5C0FA1FCCF46A0031E0EA /* HuffRenderFrame.m */; };
+		3C0753AE21BA0B58002F4B95 /* HuffRenderFrame.m in Sources */ = {isa = PBXBuildFile; fileRef = 3CE5C0FA1FCCF46A0031E0EA /* HuffRenderFrame.m */; };
 		3C1C56B31FE4433F0024A55E /* ImageIpadSize.png in Resources */ = {isa = PBXBuildFile; fileRef = 3C1C56B21FE4433E0024A55E /* ImageIpadSize.png */; };
 		3C4DC8FB1FDB495F00AABD25 /* ImageHuge.png in Resources */ = {isa = PBXBuildFile; fileRef = 3C4DC8FA1FDB495F00AABD25 /* ImageHuge.png */; };
 		3C56AF9B1FEC70F000005C41 /* BigBridge.png in Resources */ = {isa = PBXBuildFile; fileRef = 3C56AF9A1FEC70F000005C41 /* BigBridge.png */; };
@@ -450,6 +452,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				63B42F171ED2063800859D09 /* AAPLShaders.metal in Sources */,
+				3C0753AE21BA0B58002F4B95 /* HuffRenderFrame.m in Sources */,
 				3AF7EA0B1EB64A46003BB06D /* AAPLRenderer.m in Sources */,
 				3AF7E9EF1EB64A46003BB06D /* AAPLViewController.m in Sources */,
 				3A30EDFF1EB698AD00B4FC0B /* AAPLImage.m in Sources */,
@@ -466,6 +469,7 @@
 				3A30EDFE1EB698AD00B4FC0B /* AAPLImage.m in Sources */,
 				3AF7EA021EB64A46003BB06D /* AAPLViewController.m in Sources */,
 				3AF7E9FC1EB64A46003BB06D /* main.m in Sources */,
+				3C0753AD21BA0B57002F4B95 /* HuffRenderFrame.m in Sources */,
 				3AF7EA0C1EB64A46003BB06D /* AAPLRenderer.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
