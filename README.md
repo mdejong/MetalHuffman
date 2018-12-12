@@ -14,3 +14,5 @@ This code is needed for 1 reason only, speed! Decoding bytes of grayscale image 
 
 See AAPLRenderer.m and AAPLShaders.metal for the core GPU rendering logic. A table based huffman encoder and decoder are also included.
 
+http://www.modejong.com/blog/post22_metal_huffman
+
